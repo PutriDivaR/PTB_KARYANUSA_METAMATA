@@ -1,4 +1,4 @@
-package com.example.karyanusa.component
+package com.example.karyanusa.component.auth
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
@@ -22,12 +22,14 @@ import androidx.navigation.NavController
 import com.example.karyanusa.R
 
 @Composable
-fun LoginScreen(navController: NavController) {
+fun RegisterScreen(navController: NavController) {
+    // belum masuk db
+    var fullName by remember { mutableStateOf("") }
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Background image
+        // Background
         Image(
             painter = painterResource(id = R.drawable.karyanusabg),
             contentDescription = "Background",
@@ -39,18 +41,33 @@ fun LoginScreen(navController: NavController) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 32.dp)
-                .padding(top = 420.dp),
+                .padding(top = 380.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Top
         ) {
             Text(
-                text = "Login",
+                text = "REGISTER",
                 fontSize = 25.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF4E342E)
             )
 
             Spacer(modifier = Modifier.height(16.dp))
+
+            OutlinedTextField(
+                value = fullName,
+                onValueChange = { fullName = it },
+                label = { Text("Nama Lengkap") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFFD89B9B),
+                    unfocusedBorderColor = Color(0xFFD89B9B),
+                    focusedLabelColor = Color(0xFF4E342E)
+                )
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
 
             OutlinedTextField(
                 value = username,
@@ -85,27 +102,26 @@ fun LoginScreen(navController: NavController) {
             Spacer(modifier = Modifier.height(20.dp))
 
             Button(
-                onClick = { /* TODO: handle login */ },
+                onClick = { /* TODO: handle register */ },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(48.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF5D4037))
             ) {
-                Text("Login", fontSize = 20.sp, color = Color.White)
+                Text("Register", fontSize = 20.sp, color = Color.White)
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Single line clickable text
             val annotatedText = buildAnnotatedString {
-                append("Don’t have an account? ")
+                append("Already have an account? ")
                 withStyle(style = SpanStyle(color = Color(0xFFFF0057), fontWeight = FontWeight.Bold)) {
-                    append("Register")
+                    append("Login")
                 }
             }
 
             TextButton(
-                onClick = { navController.navigate("register") },
+                onClick = { navController.navigate("login") },
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             ) {
                 Text(text = annotatedText, color = Color.Black)
