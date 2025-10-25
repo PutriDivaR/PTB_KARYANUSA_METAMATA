@@ -37,7 +37,7 @@ fun DetailPage(navController: NavController, kursusId: Int) {
     var materiList by remember { mutableStateOf<List<Materi>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
 
-    // Ambil data kursus & materi
+    // Ambil data kursus n materi
     LaunchedEffect(Unit) {
         RetrofitClient.instance.getCourses().enqueue(object : Callback<List<Kursus>> {
             override fun onResponse(call: Call<List<Kursus>>, response: Response<List<Kursus>>) {
