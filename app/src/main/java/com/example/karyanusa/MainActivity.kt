@@ -16,7 +16,6 @@ import com.example.karyanusa.component.auth.RegisterScreen
 import com.example.karyanusa.component.kursus.DetailPage
 import com.example.karyanusa.component.kursus.KursusPage
 import com.example.karyanusa.component.kursus.MateriPage
-import com.example.karyanusa.component.kursus.VideoPage
 import com.example.karyanusa.ui.theme.KaryaNusaTheme
 
 @OptIn(ExperimentalAnimationApi::class)
@@ -68,14 +67,6 @@ class MainActivity : ComponentActivity() {
                     ) { backStack ->
                         val kursusId = backStack.arguments?.getString("kursusId")?.toIntOrNull() ?: 0
                         MateriPage(navController, kursusId)
-                    }
-
-                    composable("video/{videoFile}",
-                        enterTransition = { fadeIn(animationSpec = tween(400)) },
-                        exitTransition = { fadeOut(animationSpec = tween(400)) }
-                    ) { backStackEntry ->
-                        val videoFile = backStackEntry.arguments?.getString("videoFile") ?: ""
-                        VideoPage(navController, videoFile)
                     }
                 }
             }
