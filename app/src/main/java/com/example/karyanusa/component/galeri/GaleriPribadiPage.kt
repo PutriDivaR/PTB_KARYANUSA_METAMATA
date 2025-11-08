@@ -46,6 +46,8 @@ fun GaleriPribadiPage(navController: NavController) {
             Text("Upload Karya Baru", color = Color.White)
         }
 
+        Spacer(Modifier.height(8.dp))
+
         // 📸 Daftar Karya Pribadi
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
@@ -53,13 +55,25 @@ fun GaleriPribadiPage(navController: NavController) {
         ) {
             if (karyaList.isEmpty()) {
                 item {
-                    Text(
-                        "Belum ada karya yang diunggah.",
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(20.dp),
-                        color = Color.Gray
-                    )
+                            .padding(top = 80.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AddAPhoto,
+                            contentDescription = null,
+                            tint = pinkTua.copy(alpha = 0.5f),
+                            modifier = Modifier.size(60.dp)
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "Belum ada karya yang diunggah",
+                            color = Color.Gray,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
             } else {
                 items(karyaList) { karya ->
@@ -67,7 +81,7 @@ fun GaleriPribadiPage(navController: NavController) {
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 6.dp)
-                            .clickable { /* bisa tambahkan detail */ },
+                            .clickable { /* Bisa ditambahkan navigasi detail nanti */ },
                         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
                         colors = CardDefaults.cardColors(containerColor = Color.White)
                     ) {

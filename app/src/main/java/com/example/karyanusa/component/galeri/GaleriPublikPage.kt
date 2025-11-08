@@ -29,16 +29,6 @@ fun GaleriPublikPage(navController: NavController) {
 
     val karyaList by remember { mutableStateOf(KaryaRepository.daftarKarya) }
 
-    // Jika repository masih kosong, tambahkan dummy bawaan (pakai URI null saja)
-    if (KaryaRepository.daftarKarya.isEmpty()) {
-        KaryaRepository.daftarKarya.addAll(
-            listOf(
-                Karya(1, "Anyaman Rotan", "Deskripsi singkat karya anyaman rotan", null),
-                Karya(2, "Batik Tulis", "Motif klasik modern dengan sentuhan kontemporer", null)
-            )
-        )
-    }
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -61,13 +51,14 @@ fun GaleriPublikPage(navController: NavController) {
                         .fillMaxWidth()
                         .padding(vertical = 8.dp)
                         .clickable { selectedItem = karya },
-                    elevation = CardDefaults.cardElevation(6.dp)
+                    elevation = CardDefaults.cardElevation(6.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White)
                 ) {
                     Column {
                         val painter = if (karya.gambarUri != null)
                             rememberAsyncImagePainter(model = karya.gambarUri)
                         else
-                            painterResource(id = R.drawable.sample_karya) // Gambar default
+                            painterResource(id = R.drawable.sample_karya)
 
                         Image(
                             painter = painter,
@@ -78,13 +69,23 @@ fun GaleriPublikPage(navController: NavController) {
                             contentScale = ContentScale.Crop
                         )
 
-                        Column(Modifier.padding(12.dp)) {
+                        Column(
+                            Modifier
+                                .padding(horizontal = 12.dp, vertical = 10.dp)
+                        ) {
                             Text(
                                 karya.nama,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 18.sp,
                                 color = Color(0xFF4A0E24)
                             )
+                            Text(
+                                "oleh ${karya.uploader}",
+                                fontSize = 13.sp,
+                                color = Color(0xFF7A4E5A),
+                                fontWeight = FontWeight.Medium
+                            )
+                            Spacer(Modifier.height(4.dp))
                             Text(
                                 karya.deskripsi,
                                 color = Color.Gray,

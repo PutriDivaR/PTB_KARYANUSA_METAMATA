@@ -69,13 +69,13 @@ fun BerandaPage(navController: NavController) {
                         .padding(horizontal = 20.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    IconButton(onClick = { /* tetap di home */ }) {
+                    IconButton(onClick = { navController.navigate("beranda") }) {
                         Icon(Icons.Default.Home, contentDescription = "Home", tint = pinkTua)
                     }
-                    IconButton(onClick = { /* ke chat */ }) {
+                    IconButton(onClick = { navController.navigate("forum") }) {
                         Icon(
                             Icons.AutoMirrored.Filled.Chat,
-                            contentDescription = "Chat",
+                            contentDescription = "forum",
                             tint = pinkTua
                         )
                     }
@@ -89,8 +89,8 @@ fun BerandaPage(navController: NavController) {
                     IconButton(onClick = { navController.navigate("galeri") }) {
                         Icon(Icons.Default.AddAPhoto, contentDescription = "galeri", tint = pinkTua)
                     }
-                    IconButton(onClick = { /* ke profil */ }) {
-                        Icon(Icons.Default.Person, contentDescription = "Profil", tint = pinkTua)
+                    IconButton(onClick = { navController.navigate("profile") }) {
+                        Icon(Icons.Default.Person, contentDescription = "profile", tint = pinkTua)
                     }
                 }
             }
@@ -116,7 +116,7 @@ fun BerandaPage(navController: NavController) {
                 Column {
                     Text("Hi, Welcome Back", color = pinkTua, fontSize = 14.sp)
                     Text(
-                        "JEON WONWOO",
+                        "Vania Zhafira Zahra",
                         color = pinkTua,
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp

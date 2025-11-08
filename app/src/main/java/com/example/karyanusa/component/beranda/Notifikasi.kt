@@ -5,13 +5,16 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -24,25 +27,18 @@ import androidx.navigation.NavController
 fun NotifikasiPage(navController: NavController) {
     val pinkMuda = Color(0xFFFFE4EC)
     val pinkTua = Color(0xFF4A0E24)
-
-    // Contoh data notifikasi
-    val notifikasiList = listOf(
-        "Kursus baru: Membuat Anyaman Rotan telah tersedia!",
-        "Karya kamu telah disetujui admin 🎉",
-        "Pesananmu sudah dikirim 🚚",
-        "Pengingat: Kelas kerajinan dimulai besok pukul 09.00"
-    )
+    val notifikasiList = remember { NotifikasiRepository.daftarNotifikasi }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(
-                        text = "Notifikasi",
-                        color = pinkTua,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 22.sp
-                    )
+                    Text("Notifikasi", color = pinkTua, fontWeight = FontWeight.Bold, fontSize = 22.sp)
+                },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali", tint = pinkTua)
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = pinkMuda)
             )
@@ -80,25 +76,41 @@ fun NotifikasiPage(navController: NavController) {
                 .background(Color(0xFFFFF5F7))
                 .padding(innerPadding)
         ) {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp)
-            ) {
-                items(notifikasiList) { notifikasi ->
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 6.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-                    ) {
-                        Text(
-                            text = notifikasi,
-                            modifier = Modifier.padding(16.dp),
-                            fontSize = 16.sp,
-                            color = pinkTua
-                        )
+            if (notifikasiList.isEmpty()) {
+                Text(
+                    text = "Belum ada notifikasi.",
+                    color = Color.Gray,
+                    modifier = Modifier.align(Alignment.Center)
+                )
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp)
+                ) {
+                    items(notifikasiList) { notif ->
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 6.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                        ) {
+                            Column(Modifier.padding(16.dp)) {
+                                Text(
+                                    text = notif.pesan,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = pinkTua
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    text = notif.waktu,
+                                    color = Color.Gray,
+                                    fontSize = 13.sp
+                                )
+                            }
+                        }
                     }
                 }
             }
