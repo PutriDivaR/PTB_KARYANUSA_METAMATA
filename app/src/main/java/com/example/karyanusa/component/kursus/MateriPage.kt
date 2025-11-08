@@ -1,6 +1,6 @@
 package com.example.karyanusa.component.kursus
 
-import android.net.Uri
+
 import android.widget.MediaController
 import android.widget.VideoView
 import androidx.compose.foundation.Image
@@ -194,3 +194,4 @@ fun MateriPage(navController: NavController, kursusId: Int) {
         }
     }
 }
+

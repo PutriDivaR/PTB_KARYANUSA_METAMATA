@@ -114,7 +114,6 @@ fun ProfilePage(navController: NavController) {
                 .background(Color(0xFFFFF5F7)),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // === Kartu Profil ===
             Card(
                 modifier = Modifier
                     .fillMaxWidth()

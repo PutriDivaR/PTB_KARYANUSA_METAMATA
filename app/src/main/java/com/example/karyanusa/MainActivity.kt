@@ -6,12 +6,19 @@ import androidx.activity.compose.setContent
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
 import androidx.core.view.WindowCompat
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.example.karyanusa.component.auth.LoginScreen
 import com.example.karyanusa.component.auth.RegisterScreen
-// import com.example.karyanusa.component.forum.EditPertanyaan
+import com.example.karyanusa.component.beranda.BerandaPage
+import com.example.karyanusa.component.beranda.NotifikasiPage
+import com.example.karyanusa.component.galeri.EditKaryaPage
+import com.example.karyanusa.component.galeri.GaleriPage
+import com.example.karyanusa.component.galeri.GaleriPribadiPage
+import com.example.karyanusa.component.galeri.GaleriPublikPage
 import com.example.karyanusa.component.forum.ForumAddPage
 import com.example.karyanusa.component.forum.ForumDetailPage
 import com.example.karyanusa.component.forum.ForumEditPage
@@ -22,6 +29,7 @@ import com.example.karyanusa.component.kursus.KursusPage
 import com.example.karyanusa.component.kursus.MateriPage
 import com.example.karyanusa.component.profile.ProfilePage
 import com.example.karyanusa.ui.theme.KaryaNusaTheme
+import com.example.karyanusa.component.galeri.UploadKaryaPage
 
 @OptIn(ExperimentalAnimationApi::class)
 class MainActivity : ComponentActivity() {
@@ -35,7 +43,7 @@ class MainActivity : ComponentActivity() {
 
                 NavHost(
                     navController = navController,
-                    startDestination = "forum"
+                    startDestination = "beranda"
                 ) {
                     composable(
                         "login",
@@ -53,8 +61,15 @@ class MainActivity : ComponentActivity() {
                         RegisterScreen(navController)
                     }
 
-                    composable(
-                        "kursus",
+                    composable("beranda") {
+                        BerandaPage(navController)
+                    }
+
+                    composable("notifikasi") {
+                        NotifikasiPage(navController)
+                    }
+
+                    composable("kursus",
                         enterTransition = { fadeIn(animationSpec = tween(400)) },
                         exitTransition = { fadeOut(animationSpec = tween(300)) }
                     ) {
@@ -90,6 +105,31 @@ class MainActivity : ComponentActivity() {
                         MateriPage(navController, kursusId)
 
                     }
+
+                    composable("galeri") {
+                        GaleriPage(navController)
+                    }
+
+                    composable("galeriPublik") {
+                        GaleriPublikPage(navController)
+                    }
+
+                    composable("galeriPribadi") {
+                        GaleriPribadiPage(navController)
+                    }
+
+                    composable("upload") {
+                        UploadKaryaPage(navController)
+                    }
+
+                    composable(
+                        "edit/{karyaId}",
+                        arguments = listOf(navArgument("karyaId") { type = NavType.IntType })
+                    ) { backStackEntry ->
+                        val karyaId = backStackEntry.arguments?.getInt("karyaId") ?: 0
+                        EditKaryaPage(navController, karyaId)
+                    }
+
 
                     composable(
                         "forum",
