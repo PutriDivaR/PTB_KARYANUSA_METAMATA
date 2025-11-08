@@ -5,9 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
-import androidx.compose.ui.Alignment
 import androidx.core.view.WindowCompat
-import androidx.navigation.NavBackStackEntry
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -17,6 +15,7 @@ import com.example.karyanusa.component.auth.RegisterScreen
 import com.example.karyanusa.component.forum.ForumAddPage
 import com.example.karyanusa.component.forum.ForumDetailPage
 import com.example.karyanusa.component.forum.ForumEditPage
+import com.example.karyanusa.component.forum.ForumNotifikasi
 import com.example.karyanusa.component.forum.ForumPage
 import com.example.karyanusa.component.kursus.DetailPage
 import com.example.karyanusa.component.kursus.KursusPage
@@ -119,6 +118,14 @@ class MainActivity : ComponentActivity() {
                     composable("editPertanyaan/{id}") { backStackEntry ->
                         val id = backStackEntry.arguments?.getString("id")?.toIntOrNull() ?: 0
                         ForumEditPage(navController = navController, questionId = id)
+                    }
+
+                    composable(
+                        "notifforum",
+                        enterTransition = { fadeIn(animationSpec = tween(400)) },
+                        exitTransition = { fadeOut(animationSpec = tween(300)) }
+                    ) {
+                        ForumNotifikasi(navController)
                     }
 
                     composable(

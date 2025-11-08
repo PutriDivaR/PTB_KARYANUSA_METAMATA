@@ -68,10 +68,6 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.2")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.2")
     implementation("io.coil-kt:coil-compose:2.4.0")
-<<<<<<< HEAD
     implementation("androidx.activity:activity-compose:1.9.3")
     implementation("androidx.compose.foundation:foundation:1.5.4")
-=======
-
->>>>>>> dfb5298052fb8004342c2dcb35265478d190dccb
 }

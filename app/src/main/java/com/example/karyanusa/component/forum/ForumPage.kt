@@ -32,6 +32,7 @@ import coil.compose.rememberAsyncImagePainter
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material.icons.filled.Notifications
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -108,6 +109,15 @@ fun ForumPage(navController: NavController) {
                             color = Color(0xFF4A0E24),
                             fontWeight = FontWeight.Bold,
                             fontSize = 22.sp
+                        )
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { navController.navigate("notifforum") }) {
+                        Icon(
+                            imageVector = Icons.Default.Notifications,
+                            contentDescription = "Notifikasi",
+                            tint = Color(0xFF4A0E24)
                         )
                     }
                 },
