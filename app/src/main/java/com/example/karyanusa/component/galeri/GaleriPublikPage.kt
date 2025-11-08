@@ -11,8 +11,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -29,76 +29,84 @@ fun GaleriPublikPage(navController: NavController) {
 
     val karyaList by remember { mutableStateOf(KaryaRepository.daftarKarya) }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFFFFF5F7))
             .padding(12.dp)
     ) {
-        OutlinedTextField(
-            value = search,
-            onValueChange = { search = it },
-            label = { Text("Cari karya...") },
-            modifier = Modifier.fillMaxWidth()
-        )
+        Column {
+            OutlinedTextField(
+                value = search,
+                onValueChange = { search = it },
+                label = { Text("Cari karya...") },
+                modifier = Modifier.fillMaxWidth()
+            )
 
-        Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(12.dp))
 
-        LazyColumn {
-            items(karyaList.filter { it.nama.contains(search, ignoreCase = true) }) { karya ->
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp)
-                        .clickable { selectedItem = karya },
-                    elevation = CardDefaults.cardElevation(6.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White)
-                ) {
-                    Column {
-                        val painter = if (karya.gambarUri != null)
-                            rememberAsyncImagePainter(model = karya.gambarUri)
-                        else
-                            painterResource(id = R.drawable.sample_karya)
+            LazyColumn {
+                items(karyaList.filter { it.nama.contains(search, ignoreCase = true) }) { karya ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp)
+                            .clickable { selectedItem = karya },
+                        elevation = CardDefaults.cardElevation(6.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White)
+                    ) {
+                        Column {
+                            // ✅ tampilkan gambar dari kamera atau galeri
+                            if (karya.gambarBitmap != null) {
+                                Image(
+                                    bitmap = karya.gambarBitmap.asImageBitmap(),
+                                    contentDescription = karya.nama,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(180.dp),
+                                    contentScale = ContentScale.Crop
+                                )
+                            } else {
+                                Image(
+                                    painter = rememberAsyncImagePainter(
+                                        model = karya.gambarUri ?: R.drawable.sample_karya
+                                    ),
+                                    contentDescription = karya.nama,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(180.dp),
+                                    contentScale = ContentScale.Crop
+                                )
+                            }
 
-                        Image(
-                            painter = painter,
-                            contentDescription = karya.nama,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(180.dp),
-                            contentScale = ContentScale.Crop
-                        )
-
-                        Column(
-                            Modifier
-                                .padding(horizontal = 12.dp, vertical = 10.dp)
-                        ) {
-                            Text(
-                                karya.nama,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 18.sp,
-                                color = Color(0xFF4A0E24)
-                            )
-                            Text(
-                                "oleh ${karya.uploader}",
-                                fontSize = 13.sp,
-                                color = Color(0xFF7A4E5A),
-                                fontWeight = FontWeight.Medium
-                            )
-                            Spacer(Modifier.height(4.dp))
-                            Text(
-                                karya.deskripsi,
-                                color = Color.Gray,
-                                fontSize = 14.sp
-                            )
+                            Column(
+                                Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
+                            ) {
+                                Text(
+                                    karya.nama,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 18.sp,
+                                    color = Color(0xFF4A0E24)
+                                )
+                                Text(
+                                    "oleh ${karya.uploader}",
+                                    fontSize = 13.sp,
+                                    color = Color(0xFF7A4E5A),
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
                         }
                     }
                 }
             }
         }
 
+        // ✅ tampilkan dialog detail di atas semua elemen
         if (selectedItem != null) {
-            DetailKaryaDialog(karya = selectedItem!!, onDismiss = { selectedItem = null })
+            DetailKaryaDialog(
+                karya = selectedItem!!,
+                onDismiss = { selectedItem = null }
+            )
         }
     }
 }
