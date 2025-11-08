@@ -77,10 +77,10 @@ fun KursusPage(navController: NavController) {
                     IconButton(onClick = { /* ke Home */ }) {
                         Icon(Icons.Default.Home, contentDescription = "Home", tint = Color(0xFF4A0E24))
                     }
-                    IconButton(onClick = { /* ke Chat */ }) {
+                    IconButton(onClick = { /* ke Forum */ }) {
                         Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "Chat", tint = Color(0xFF4A0E24))
                     }
-                    IconButton(onClick = { /* ke Kursus */ }) {
+                    IconButton(onClick = { navController.navigate("kursus") }) {
                         Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = "Kursus", tint = Color(0xFF4A0E24))
                     }
                     IconButton(onClick = { /* ke galeri */ }) {

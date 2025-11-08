@@ -1,5 +1,6 @@
 package com.example.karyanusa.component.auth
 
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
@@ -20,6 +21,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.karyanusa.R
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
+import com.example.karyanusa.network.RetrofitClient
+import com.example.karyanusa.network.LoginRequest
+import com.example.karyanusa.network.LoginResponse
+import com.example.karyanusa.component.auth.LoginTokenManager
+import androidx.compose.ui.platform.LocalContext
+
 
 @Composable
 fun LoginScreen(navController: NavController) {
@@ -55,7 +65,7 @@ fun LoginScreen(navController: NavController) {
             OutlinedTextField(
                 value = username,
                 onValueChange = { username = it },
-                label = { Text("Username") },
+                label = { Text("Email") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
@@ -84,8 +94,39 @@ fun LoginScreen(navController: NavController) {
 
             Spacer(modifier = Modifier.height(20.dp))
 
+            val context = LocalContext.current
+
             Button(
-                onClick = { navController.navigate("kursus") },
+                onClick = {
+                    val loginRequest = LoginRequest(email = username, password = password)
+
+                    RetrofitClient.instance.loginUser(loginRequest).enqueue(object : Callback<LoginResponse> {
+                        override fun onResponse(
+                            call: Call<LoginResponse>,
+                            response: Response<LoginResponse>
+                        ) {
+                            if (response.isSuccessful && response.body()?.status == true) {
+                                val body = response.body()!!
+                                val tokenManager = LoginTokenManager(context)
+
+                                tokenManager.saveToken(
+                                    token = body.token ?: "",
+                                    userId = body.user_id ?: "",
+                                    userName = body.nama ?: ""
+                                )
+
+                                Toast.makeText(context, "Login Berhasil!", Toast.LENGTH_SHORT).show()
+                                navController.navigate("kursus")
+                            } else {
+                                Toast.makeText(context, "Login gagal: ${response.body()?.message}", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+
+                        override fun onFailure(call: Call<LoginResponse>, t: Throwable) {
+                            Toast.makeText(context, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+                        }
+                    })
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(48.dp),
@@ -93,6 +134,7 @@ fun LoginScreen(navController: NavController) {
             ) {
                 Text("Login", fontSize = 20.sp, color = Color.White)
             }
+
 
             Spacer(modifier = Modifier.height(16.dp))
 

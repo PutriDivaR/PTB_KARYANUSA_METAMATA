@@ -1,5 +1,7 @@
 package com.example.karyanusa.component.auth
 
+import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
@@ -9,6 +11,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -20,16 +23,20 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.karyanusa.R
+import com.example.karyanusa.network.RegisterRequest
+import com.example.karyanusa.network.RegisterResponse
+import com.example.karyanusa.network.RetrofitClient
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
 
 @Composable
 fun RegisterScreen(navController: NavController) {
-    // belum masuk db
     var fullName by remember { mutableStateOf("") }
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Background
         Image(
             painter = painterResource(id = R.drawable.karyanusabg),
             contentDescription = "Background",
@@ -72,7 +79,7 @@ fun RegisterScreen(navController: NavController) {
             OutlinedTextField(
                 value = username,
                 onValueChange = { username = it },
-                label = { Text("Username") },
+                label = { Text("Email") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
@@ -101,8 +108,51 @@ fun RegisterScreen(navController: NavController) {
 
             Spacer(modifier = Modifier.height(20.dp))
 
+            val context = LocalContext.current
+
             Button(
-                onClick = { /* TODO: handle register */ },
+                onClick = {
+                    if (fullName.isBlank() || username.isBlank() || password.isBlank()) {
+                        Toast.makeText(context, "Semua field harus diisi", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+
+                    val request = RegisterRequest(
+                        nama = fullName,
+                        email = username,
+                        password = password
+                    )
+
+                    Log.d("RegisterScreen", "Mengirim request: $request")
+
+                    RetrofitClient.instance.registerUser(request)
+                        .enqueue(object : Callback<RegisterResponse> {
+                            override fun onResponse(
+                                call: Call<RegisterResponse>,
+                                response: Response<RegisterResponse>
+                            ) {
+                                if (response.isSuccessful) {
+                                    val body = response.body()
+                                    Log.d("RegisterScreen", "Response sukses: $body")
+
+                                    if (body?.status == true) {
+                                        Toast.makeText(context, "Registrasi berhasil!", Toast.LENGTH_SHORT).show()
+                                        navController.navigate("login")
+                                    } else {
+                                        Toast.makeText(context, "Gagal: ${body?.message ?: "Tidak diketahui"}", Toast.LENGTH_SHORT).show()
+                                    }
+                                } else {
+                                    Log.e("RegisterScreen", "Response gagal: ${response.errorBody()?.string()}")
+                                    Toast.makeText(context, "Gagal konek ke server", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+
+                            override fun onFailure(call: Call<RegisterResponse>, t: Throwable) {
+                                Log.e("RegisterScreen", "Error: ${t.message}", t)
+                                Toast.makeText(context, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+                            }
+                        })
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(48.dp),
@@ -114,7 +164,7 @@ fun RegisterScreen(navController: NavController) {
             Spacer(modifier = Modifier.height(16.dp))
 
             val annotatedText = buildAnnotatedString {
-                append("Already have an account? ")
+                append("Sudah punya akun? ")
                 withStyle(style = SpanStyle(color = Color(0xFFFF0057), fontWeight = FontWeight.Bold)) {
                     append("Login")
                 }

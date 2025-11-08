@@ -19,10 +19,14 @@ import com.example.karyanusa.component.galeri.EditKaryaPage
 import com.example.karyanusa.component.galeri.GaleriPage
 import com.example.karyanusa.component.galeri.GaleriPribadiPage
 import com.example.karyanusa.component.galeri.GaleriPublikPage
+import com.example.karyanusa.component.forum.ForumAddPage
+import com.example.karyanusa.component.forum.ForumDetailPage
+import com.example.karyanusa.component.forum.ForumEditPage
+import com.example.karyanusa.component.forum.ForumPage
 import com.example.karyanusa.component.kursus.DetailPage
 import com.example.karyanusa.component.kursus.KursusPage
 import com.example.karyanusa.component.kursus.MateriPage
-import com.example.karyanusa.component.kursus.VideoPage
+import com.example.karyanusa.component.profile.ProfilePage
 import com.example.karyanusa.ui.theme.KaryaNusaTheme
 import com.example.karyanusa.component.galeri.UploadKaryaPage
 
@@ -40,14 +44,16 @@ class MainActivity : ComponentActivity() {
                     navController = navController,
                     startDestination = "beranda"
                 ) {
-                    composable("login",
+                    composable(
+                        "login",
                         enterTransition = { fadeIn(animationSpec = tween(300)) },
                         exitTransition = { fadeOut(animationSpec = tween(300)) }
                     ) {
                         LoginScreen(navController)
                     }
 
-                    composable("register",
+                    composable(
+                        "register",
                         enterTransition = { slideInHorizontally(initialOffsetX = { 1000 }) + fadeIn() },
                         exitTransition = { slideOutHorizontally(targetOffsetX = { -1000 }) + fadeOut() }
                     ) {
@@ -69,20 +75,34 @@ class MainActivity : ComponentActivity() {
                         KursusPage(navController)
                     }
 
-                    composable("detail/{id}",
-                        enterTransition = { slideInHorizontally(initialOffsetX = { 1000 }, animationSpec = tween(400)) },
-                        exitTransition = { slideOutHorizontally(targetOffsetX = { -1000 }, animationSpec = tween(400)) }
+                    composable(
+                        "detail/{id}",
+                        enterTransition = {
+                            slideInHorizontally(
+                                initialOffsetX = { 1000 },
+                                animationSpec = tween(400)
+                            )
+                        },
+                        exitTransition = {
+                            slideOutHorizontally(
+                                targetOffsetX = { -1000 },
+                                animationSpec = tween(400)
+                            )
+                        }
                     ) { backStackEntry ->
                         val id = backStackEntry.arguments?.getString("id")?.toInt() ?: 0
                         DetailPage(navController, kursusId = id)
                     }
 
-                    composable("materi/{kursusId}",
+                    composable(
+                        "materi/{kursusId}",
                         enterTransition = { fadeIn(animationSpec = tween(400)) },
                         exitTransition = { fadeOut(animationSpec = tween(400)) }
                     ) { backStack ->
-                        val kursusId = backStack.arguments?.getString("kursusId")?.toIntOrNull() ?: 0
+                        val kursusId =
+                            backStack.arguments?.getString("kursusId")?.toIntOrNull() ?: 0
                         MateriPage(navController, kursusId)
+
                     }
 
                     composable("galeri") {
@@ -109,15 +129,48 @@ class MainActivity : ComponentActivity() {
                         EditKaryaPage(navController, karyaId)
                     }
 
-                    composable("video/{videoFile}",
+
+                    composable(
+                        "forum",
                         enterTransition = { fadeIn(animationSpec = tween(400)) },
-                        exitTransition = { fadeOut(animationSpec = tween(400)) }
+                        exitTransition = { fadeOut(animationSpec = tween(300)) }
+                    ) {
+                        ForumPage(navController)
+                    }
+
+                    composable(
+                        "forum/add",
+                        enterTransition = { fadeIn(animationSpec = tween(400)) },
+                        exitTransition = { fadeOut(animationSpec = tween(300)) }
+                    ) {
+                        ForumAddPage(navController)
+                    }
+
+                    composable("forumDetail/{id}",
+                        enterTransition = { fadeIn(animationSpec = tween(400)) },
+                        exitTransition = { fadeOut(animationSpec = tween(300)) }
                     ) { backStackEntry ->
-                        val videoFile = backStackEntry.arguments?.getString("videoFile") ?: ""
-                        VideoPage(navController, videoFile)
+                        val id = backStackEntry.arguments?.getString("id")?.toIntOrNull() ?: 0
+                        ForumDetailPage(navController = navController, questionId = id)
+                    }
+
+                    composable("editPertanyaan/{id}") { backStackEntry ->
+                        val id = backStackEntry.arguments?.getString("id")?.toIntOrNull() ?: 0
+                        ForumEditPage(navController = navController, questionId = id)
+                    }
+
+                    composable(
+                        "profile",
+                        enterTransition = { fadeIn(animationSpec = tween(400)) },
+                        exitTransition = { fadeOut(animationSpec = tween(300)) }
+                    ) {
+                        ProfilePage(navController)
                     }
                 }
             }
         }
     }
 }
+
+
+

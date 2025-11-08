@@ -40,6 +40,7 @@ android {
 }
 
 dependencies {
+    implementation("androidx.compose.ui:ui:1.5.3")
     implementation("androidx.navigation:navigation-compose:2.9.5")
     implementation("androidx.compose.animation:animation:1.7.2")
     implementation("androidx.compose.material:material-icons-extended:1.7.8")
@@ -55,6 +56,7 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.firebase.ai)
     implementation(libs.androidx.ui)
+    implementation(libs.androidx.compose.runtime)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -69,4 +71,8 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.2")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.2")
     implementation("io.coil-kt:coil-compose:2.5.0")
+    implementation("io.coil-kt:coil-compose:2.4.0")
+    implementation("androidx.activity:activity-compose:1.9.3")
+    implementation("androidx.compose.foundation:foundation:1.5.4")
+
 }
