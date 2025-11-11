@@ -138,7 +138,7 @@ fun ForumDetailPage(
                     IconButton(onClick = { navController.navigate("kursus") }) {
                         Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = "Kursus", tint = Color(0xFF4A0E24))
                     }
-                    IconButton(onClick = { navController.navigate("gallery") }) {
+                    IconButton(onClick = { navController.navigate("galeri") }) {
                         Icon(Icons.Default.AddAPhoto, contentDescription = "Galeri", tint = Color(0xFF4A0E24))
                     }
                     IconButton(onClick = { navController.navigate("profile") }) {

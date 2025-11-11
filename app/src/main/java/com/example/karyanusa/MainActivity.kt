@@ -42,7 +42,7 @@ class MainActivity : ComponentActivity() {
 
                 NavHost(
                     navController = navController,
-                    startDestination = "beranda"
+                    startDestination = "login"
                 ) {
                     composable(
                         "login",

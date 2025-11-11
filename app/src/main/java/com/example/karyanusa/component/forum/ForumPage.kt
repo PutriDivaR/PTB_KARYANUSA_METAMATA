@@ -124,7 +124,7 @@ fun ForumPage(navController: NavController) {
                         .padding(horizontal = 20.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    IconButton(onClick = { navController.navigate("home") }) {
+                    IconButton(onClick = { navController.navigate("beranda") }) {
                         Icon(Icons.Default.Home, contentDescription = "Home", tint = Color(0xFF4A0E24))
                     }
                     IconButton(onClick = { navController.navigate("forum") }) {
@@ -133,7 +133,7 @@ fun ForumPage(navController: NavController) {
                     IconButton(onClick = { navController.navigate("kursus") }) {
                         Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = "Kursus", tint = Color(0xFF4A0E24))
                     }
-                    IconButton(onClick = { navController.navigate("gallery") }) {
+                    IconButton(onClick = { navController.navigate("galeri") }) {
                         Icon(Icons.Default.AddAPhoto, contentDescription = "Galeri", tint = Color(0xFF4A0E24))
                     }
                     IconButton(onClick = { navController.navigate("profile") }) {

@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -74,19 +75,19 @@ fun KursusPage(navController: NavController) {
                         .padding(horizontal = 20.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    IconButton(onClick = { /* ke Home */ }) {
+                    IconButton(onClick = { navController.navigate("beranda")}) {
                         Icon(Icons.Default.Home, contentDescription = "Home", tint = Color(0xFF4A0E24))
                     }
-                    IconButton(onClick = { /* ke Forum */ }) {
+                    IconButton(onClick = { navController.navigate("forum") }) {
                         Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "Chat", tint = Color(0xFF4A0E24))
                     }
                     IconButton(onClick = { navController.navigate("kursus") }) {
                         Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = "Kursus", tint = Color(0xFF4A0E24))
                     }
-                    IconButton(onClick = { /* ke galeri */ }) {
+                    IconButton(onClick = { navController.navigate("galeri") }) {
                         Icon(Icons.Default.AddAPhoto, contentDescription = "Notifikasi", tint = Color(0xFF4A0E24))
                     }
-                    IconButton(onClick = { /* ke Profile */ }) {
+                    IconButton(onClick = { navController.navigate("profile") }) {
                         Icon(Icons.Default.Person, contentDescription = "Profile", tint = Color(0xFF4A0E24))
                     }
                 }
@@ -122,13 +123,20 @@ fun KursusPage(navController: NavController) {
                         ) {
                             Column {
                                 Image(
-                                    painter = rememberAsyncImagePainter(R.drawable.tessampul),
+                                    painter = rememberAsyncImagePainter(
+                                        model = kursus.thumbnail,
+                                        placeholder = painterResource(R.drawable.tessampul),
+                                        error = painterResource(R.drawable.tessampul)
+                                    ),
                                     contentDescription = kursus.judul,
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .height(160.dp),
                                     contentScale = ContentScale.Crop
                                 )
+
+
+
 
                                 Column(modifier = Modifier.padding(12.dp)) {
                                     Text(

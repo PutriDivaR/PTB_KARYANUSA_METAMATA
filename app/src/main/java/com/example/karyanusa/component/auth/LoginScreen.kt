@@ -27,7 +27,6 @@ import retrofit2.Response
 import com.example.karyanusa.network.RetrofitClient
 import com.example.karyanusa.network.LoginRequest
 import com.example.karyanusa.network.LoginResponse
-import com.example.karyanusa.component.auth.LoginTokenManager
 import androidx.compose.ui.platform.LocalContext
 
 
@@ -116,7 +115,7 @@ fun LoginScreen(navController: NavController) {
                                 )
 
                                 Toast.makeText(context, "Login Berhasil!", Toast.LENGTH_SHORT).show()
-                                navController.navigate("kursus")
+                                navController.navigate("beranda")
                             } else {
                                 Toast.makeText(context, "Login gagal: ${response.body()?.message}", Toast.LENGTH_SHORT).show()
                             }
@@ -154,3 +153,4 @@ fun LoginScreen(navController: NavController) {
         }
     }
 }
+

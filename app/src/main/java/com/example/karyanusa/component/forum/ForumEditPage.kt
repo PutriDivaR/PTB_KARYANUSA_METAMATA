@@ -153,7 +153,7 @@ fun ForumEditPage(
                     IconButton(onClick = { navController.navigate("kursus") }) {
                         Icon(Icons.AutoMirrored.Filled.MenuBook, null, tint = Color(0xFF4A0E24))
                     }
-                    IconButton(onClick = { navController.navigate("gallery") }) {
+                    IconButton(onClick = { navController.navigate("galeri") }) {
                         Icon(Icons.Default.AddAPhoto, null, tint = Color(0xFF4A0E24))
                     }
                     IconButton(onClick = { navController.navigate("profile") }) {

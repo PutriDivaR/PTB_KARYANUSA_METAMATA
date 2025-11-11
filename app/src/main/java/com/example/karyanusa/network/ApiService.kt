@@ -1,5 +1,6 @@
 package com.example.karyanusa.network
 
+import okhttp3.ResponseBody
 import retrofit2.Call
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -57,6 +58,13 @@ data class Materi(
     val video: String?
 )
 
+// Data class untuk cek enrol user ikut kelas (kursus detail page)
+data class EnrollmentCheckResponse(
+    val enrolled: Boolean,
+    val status: String?,
+    val progress: Int?
+)
+
 
 interface ApiService {
 
@@ -73,5 +81,24 @@ interface ApiService {
     fun getMateriByKursus(
         @Path("kursus_id") kursusId: Int
     ): Call<List<Materi>>
+
+    @POST("api/enroll")
+    fun enrollCourse(
+        @Header("Authorization") token: String,
+        @Body body: Map<String, Int>
+    ): Call<ResponseBody>
+
+    @GET("api/check-enrollment/{kursus_id}")
+    fun checkEnrollment(
+        @Header("Authorization") token: String,
+        @Path("kursus_id") kursusId: Int
+    ): Call<EnrollmentCheckResponse>
+
+    @POST("api/update-progress")
+    fun updateProgress(
+        @Header("Authorization") token: String,
+        @Body body: Map<String, Any>
+    ): Call<ResponseBody>
+
 
 }

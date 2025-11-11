@@ -1,8 +1,8 @@
 package com.example.karyanusa.component.kursus
 
 
-import android.widget.MediaController
-import android.widget.VideoView
+import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -32,7 +32,14 @@ import com.example.karyanusa.network.RetrofitClient
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
-import androidx.core.net.toUri
+import com.example.karyanusa.component.auth.LoginTokenManager
+import okhttp3.ResponseBody
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.common.MediaItem
+import androidx.media3.ui.PlayerView
+import com.example.karyanusa.network.EnrollmentCheckResponse
+import kotlinx.coroutines.launch
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,6 +47,11 @@ fun MateriPage(navController: NavController, kursusId: Int) {
     var kursusList by remember { mutableStateOf<List<Kursus>>(emptyList()) }
     var materiList by remember { mutableStateOf<List<Materi>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
+    var enrollmentStatus by remember { mutableStateOf("none") } // none, ongoing, completed
+    var isChecking by remember { mutableStateOf(true) }
+
+    val tokenManager = LoginTokenManager(LocalContext.current)
+    val token = tokenManager.getToken()
 
     // ambil data kursus n materi
     LaunchedEffect(Unit) {
@@ -63,32 +75,73 @@ fun MateriPage(navController: NavController, kursusId: Int) {
                 println("Gagal ambil materi: ${t.message}")
             }
         })
+
+        if (token != null) {
+            RetrofitClient.instance.checkEnrollment("Bearer $token", kursusId)
+                .enqueue(object : Callback<EnrollmentCheckResponse> {
+                    override fun onResponse(call: Call<EnrollmentCheckResponse>, response: Response<EnrollmentCheckResponse>) {
+                        if (response.isSuccessful) {
+                            val data = response.body()
+                            if (data != null && data.enrolled) {
+                                enrollmentStatus = data.status ?: "none"
+                            }
+                        }
+                        isChecking = false
+                    }
+
+                    override fun onFailure(call: Call<EnrollmentCheckResponse>, t: Throwable) {
+                        isChecking = false
+                    }
+                })
+        } else {
+            isChecking = false
+        }
     }
+
 
     val kursus = kursusList.find { it.kursus_id == kursusId }
     val context = LocalContext.current
 
     Scaffold(
         bottomBar = {
-            BottomAppBar(containerColor = Color(0xFFFFE4EC)) {
-                Button(
-                    onClick = { /* aksi download sertifikat */ },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7A3E48))
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.karyanusalogo),
-                        contentDescription = null,
-                        tint = Color.White
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Unduh Sertifikat", color = Color.White)
+            if (enrollmentStatus == "completed") { // hanya tampil kalau kursus selesai
+                BottomAppBar(containerColor = Color(0xFFFFE4EC)) {
+                    val scope = rememberCoroutineScope()
+
+                    Button(
+                        onClick = {
+                            val userName = LoginTokenManager(context).getUserName() ?: "Peserta"
+                            val kursusTitle = kursus?.judul ?: "Kursus"
+
+                            scope.launch {
+                                Toast.makeText(context, "Membuat sertifikat...", Toast.LENGTH_SHORT).show()
+                                val savedUri = generateCertificatePdf(context, userName, kursusTitle)
+                                if (savedUri != null) {
+                                    Toast.makeText(context, "Sertifikat tersimpan.", Toast.LENGTH_LONG).show()
+                                    openPdf(context, savedUri)
+                                } else {
+                                    Toast.makeText(context, "Gagal menyimpan sertifikat.", Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7A3E48))
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.karyanusalogo),
+                            contentDescription = null,
+                            tint = Color.White
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Unduh Sertifikat", color = Color.White)
+                    }
                 }
             }
         }
+
     ) { innerPadding ->
         Box(
             modifier = Modifier
@@ -144,7 +197,7 @@ fun MateriPage(navController: NavController, kursusId: Int) {
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        // 🎬 Daftar video materi
+                        // Daftar video materi
                         materiList.forEach { materi ->
                             Card(
                                 modifier = Modifier
@@ -158,22 +211,27 @@ fun MateriPage(navController: NavController, kursusId: Int) {
                                     // Video
                                     AndroidView(
                                         factory = {
-                                            VideoView(context).apply {
-                                                val uri =
-                                                    "http://10.0.2.2:8000/video/${materi.video}".toUri()
-                                                setVideoURI(uri)
-                                                val mediaController = MediaController(context)
-                                                mediaController.setAnchorView(this)
-                                                setMediaController(mediaController)
+                                            val exoPlayer = ExoPlayer.Builder(context).build().apply {
+                                                val mediaItem = MediaItem.fromUri(Uri.parse(materi.video))
+                                                setMediaItem(mediaItem)
+                                                prepare()
+                                                playWhenReady = false
                                             }
-                                        },
-                                        update = { view ->
-                                            view.setOnPreparedListener { it.start() }
+
+                                            PlayerView(context).apply {
+                                                player = exoPlayer
+                                                useController = true
+                                                layoutParams = android.view.ViewGroup.LayoutParams(
+                                                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                                                    android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                                                )
+                                            }
                                         },
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .height(220.dp)
                                     )
+
 
                                     Spacer(modifier = Modifier.height(8.dp))
                                     Text(materi.judul, fontWeight = FontWeight.Bold)
@@ -194,4 +252,33 @@ fun MateriPage(navController: NavController, kursusId: Int) {
         }
     }
 }
+
+fun updateProgress(navController: NavController, kursusId: Int, watchedCount: Int, total: Int) {
+    val context = navController.context
+    val tokenManager = LoginTokenManager(context)
+    val token = tokenManager.getToken() ?: return
+
+    val progress = ((watchedCount.toFloat() / total) * 100).toInt()
+
+    val body = mapOf(
+        "kursus_id" to kursusId,
+        "progress" to progress
+    )
+
+    RetrofitClient.instance.updateProgress("Bearer $token", body)
+        .enqueue(object : Callback<ResponseBody> {
+            override fun onResponse(call: Call<ResponseBody>, response: Response<ResponseBody>) {
+                if (response.isSuccessful) {
+                    Toast.makeText(context, "Progress: $progress%", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(context, "Gagal update progress", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            override fun onFailure(call: Call<ResponseBody>, t: Throwable) {
+                Toast.makeText(context, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+            }
+        })
+}
+
 

@@ -115,7 +115,7 @@ fun ForumAddPage(navController: NavController) {
                     IconButton(onClick = { navController.navigate("home") }) { Icon(Icons.Default.Home, null, tint = Color(0xFF4A0E24)) }
                     IconButton(onClick = { navController.navigate("forum") }) { Icon(Icons.AutoMirrored.Filled.Chat, null, tint = Color(0xFF4A0E24)) }
                     IconButton(onClick = { navController.navigate("kursus") }) { Icon(Icons.AutoMirrored.Filled.MenuBook, null, tint = Color(0xFF4A0E24)) }
-                    IconButton(onClick = { navController.navigate("gallery") }) { Icon(Icons.Default.AddAPhoto, null, tint = Color(0xFF4A0E24)) }
+                    IconButton(onClick = { navController.navigate("galeri") }) { Icon(Icons.Default.AddAPhoto, null, tint = Color(0xFF4A0E24)) }
                     IconButton(onClick = { navController.navigate("profile") }) { Icon(Icons.Default.Person, null, tint = Color(0xFF4A0E24)) }
                 }
             }

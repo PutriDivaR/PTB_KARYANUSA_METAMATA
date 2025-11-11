@@ -1,5 +1,6 @@
 package com.example.karyanusa.component.kursus
 
+import android.widget.Toast
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -14,18 +15,22 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
+import coil.request.ImageRequest
 import com.example.karyanusa.R
+import com.example.karyanusa.component.auth.LoginTokenManager
+import com.example.karyanusa.network.EnrollmentCheckResponse
 import com.example.karyanusa.network.Kursus
 import com.example.karyanusa.network.Materi
 import com.example.karyanusa.network.RetrofitClient
+import okhttp3.ResponseBody
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -36,6 +41,11 @@ fun DetailPage(navController: NavController, kursusId: Int) {
     var kursusList by remember { mutableStateOf<List<Kursus>>(emptyList()) }
     var materiList by remember { mutableStateOf<List<Materi>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
+    var enrollmentStatus by remember { mutableStateOf("none") } // none, ongoing, completed
+    var isChecking by remember { mutableStateOf(true) }
+
+    val tokenManager = LoginTokenManager(LocalContext.current)
+    val token = tokenManager.getToken()
 
     // Ambil data kursus n materi
     LaunchedEffect(Unit) {
@@ -55,6 +65,32 @@ fun DetailPage(navController: NavController, kursusId: Int) {
                 println("Error load materi: ${t.message}")
             }
         })
+
+
+        if (token != null) {
+            RetrofitClient.instance.checkEnrollment("Bearer $token", kursusId)
+                .enqueue(object : Callback<EnrollmentCheckResponse> {
+                    override fun onResponse(call: Call<EnrollmentCheckResponse>, response: Response<EnrollmentCheckResponse>) {
+                        if (response.isSuccessful) {
+                            val data = response.body()
+                            if (data != null && data.enrolled) {
+                                enrollmentStatus = when (data.status) {
+                                    "completed" -> "completed"
+                                    "ongoing" -> "ongoing"
+                                    else -> "none"
+                                }
+                            }
+
+                        }
+                        isChecking = false
+                    }
+                    override fun onFailure(call: Call<EnrollmentCheckResponse>, t: Throwable) {
+                        isChecking = false
+                    }
+                })
+        } else {
+            isChecking = false
+        }
     }
 
     val kursus = kursusList.find { it.kursus_id == kursusId }
@@ -67,18 +103,26 @@ fun DetailPage(navController: NavController, kursusId: Int) {
 
                 Button(
                     onClick = {
-                        pressed = true
-                        navController.navigate("materi/${kursus?.kursus_id}")
+                        when (enrollmentStatus) {
+                            "none" -> enrollToCourse(kursusId, navController)
+                            "ongoing", "completed" -> navController.navigate("materi/$kursusId")
+                        }
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(12.dp)
-                        .graphicsLayer(scaleX = scale, scaleY = scale),
+                        .padding(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7A3E48))
                 ) {
-                    Text("Ikuti Kelas", color = Color.White)
+                    Text(
+                        when (enrollmentStatus) {
+                            "none" -> "Ikuti Kelas"
+                            "ongoing" -> "Lanjutkan Kelas"
+                            "completed" -> "Lihat Sertifikat"
+                            else -> "Ikuti Kelas"
+                        },
+                        color = Color.White
+                    )
                 }
-
             }
         }
     ) { innerPadding ->
@@ -100,13 +144,23 @@ fun DetailPage(navController: NavController, kursusId: Int) {
                         // Header per kursus
                         Box {
                             Image(
-                                painter = rememberAsyncImagePainter(R.drawable.tessampul),
-                                contentDescription = null,
+                                painter = rememberAsyncImagePainter(
+                                    ImageRequest.Builder(LocalContext.current)
+                                        .data(kursus.thumbnail)
+                                        .crossfade(true)
+                                        .diskCacheKey(kursus.thumbnail)
+                                        .memoryCacheKey(kursus.thumbnail)
+                                        .error(R.drawable.tessampul)
+                                        .build()
+                                ),
+                                contentDescription = kursus.judul,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(240.dp),
                                 contentScale = ContentScale.Crop
                             )
+
+
 
                             IconButton(onClick = { navController.popBackStack() }) {
                                 Icon(
@@ -204,3 +258,42 @@ fun DetailPage(navController: NavController, kursusId: Int) {
         }
     }
 }
+
+fun enrollToCourse(kursusId: Int, navController: NavController) {
+    val context = navController.context
+    val tokenManager = LoginTokenManager(context)
+    val token = tokenManager.getToken()
+
+    if (token == null) {
+        Toast.makeText(context, "Harus login dulu!", Toast.LENGTH_SHORT).show()
+        return
+    }
+
+    val requestBody = mapOf("kursus_id" to kursusId)
+
+    println("TOKEN: Bearer $token")
+    println("REQUEST: $requestBody")
+
+    RetrofitClient.instance.enrollCourse("Bearer $token", requestBody)
+        .enqueue(object : Callback<ResponseBody> {
+            override fun onResponse(call: Call<ResponseBody>, response: Response<ResponseBody>) {
+                println("ENROLL RESPONSE: ${response.code()} ${response.message()}")
+                println("ENROLL BODY: ${response.errorBody()?.string()}")
+                println("TOKEN SAAT ENROLL: $token")
+
+                if (response.isSuccessful) {
+                    Toast.makeText(context, "Berhasil mendaftar kursus!", Toast.LENGTH_SHORT).show()
+                    navController.navigate("materi/$kursusId")
+                } else {
+                    Toast.makeText(context, "Gagal daftar: ${response.code()}", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            override fun onFailure(call: Call<ResponseBody>, t: Throwable) {
+                println("ENROLL FAILURE: ${t.message}")
+                Toast.makeText(context, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+            }
+        })
+
+}
+

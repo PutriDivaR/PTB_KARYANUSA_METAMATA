@@ -76,7 +76,7 @@ fun GaleriPage(navController: NavController) {
                     IconButton(onClick = { navController.navigate("beranda") }) {
                         Icon(Icons.Default.Home, contentDescription = "Home", tint = pinkTua)
                     }
-                    IconButton(onClick = { /* Chat */ }) {
+                    IconButton(onClick = { navController.navigate("forum")}) {
                         Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "Chat", tint = pinkTua)
                     }
                     IconButton(onClick = { navController.navigate(route = "kursus") }) {
@@ -85,7 +85,7 @@ fun GaleriPage(navController: NavController) {
                     IconButton(onClick = { navController.navigate("galeri") }) {
                         Icon(Icons.Default.AddAPhoto, contentDescription = "Galeri", tint = pinkTua)
                     }
-                    IconButton(onClick = { /* Profil */ }) {
+                    IconButton(onClick = { navController.navigate("profile")}) {
                         Icon(Icons.Default.Person, contentDescription = "Profil", tint = pinkTua)
                     }
                 }
