@@ -21,6 +21,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -75,7 +77,7 @@ fun BerandaPage(navController: NavController) {
                     IconButton(onClick = { navController.navigate("forum") }) {
                         Icon(
                             Icons.AutoMirrored.Filled.Chat,
-                            contentDescription = "Chat",
+                            contentDescription = "forum",
                             tint = pinkTua
                         )
                     }
@@ -116,7 +118,7 @@ fun BerandaPage(navController: NavController) {
                 Column {
                     Text("Hi, Welcome Back", color = pinkTua, fontSize = 14.sp)
                     Text(
-                        "JEON WONWOO",
+                        "Vania Zhafira Zahra",
                         color = pinkTua,
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp
@@ -178,9 +180,11 @@ fun BerandaPage(navController: NavController) {
             Spacer(Modifier.height(20.dp))
 
             // 🔹 MY GALLERY
+            // 🔹 MY GALLERY
             SectionHeader(
                 title = "MY GALLERY",
-                onSeeAll = { navController.navigate("galeri") })
+                onSeeAll = { navController.navigate("galeri") }
+            )
 
             if (KaryaRepository.daftarKarya.isEmpty()) {
                 Text(
@@ -206,11 +210,39 @@ fun BerandaPage(navController: NavController) {
                                 .aspectRatio(1f),
                             colors = CardDefaults.cardColors(containerColor = Color(0xFFECECEC))
                         ) {
-                            Image(
-                                painter = rememberAsyncImagePainter(karya.gambarUri),
-                                contentDescription = karya.nama,
-                                modifier = Modifier.fillMaxSize()
-                            )
+                            when {
+                                // 🖼️ kalau ada URI (misalnya dari galeri)
+                                karya.gambarUri != null -> {
+                                    Image(
+                                        painter = rememberAsyncImagePainter(karya.gambarUri),
+                                        contentDescription = karya.nama,
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                }
+
+                                // 📷 kalau dari kamera (bitmap)
+                                karya.gambarBitmap != null -> {
+                                    Image(
+                                        bitmap = karya.gambarBitmap.asImageBitmap(),
+                                        contentDescription = karya.nama,
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                }
+
+                                // 🚫 kalau nggak ada gambar
+                                else -> {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(Color.LightGray),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text("No Image", color = Color.DarkGray)
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -218,7 +250,6 @@ fun BerandaPage(navController: NavController) {
         }
     }
 }
-
 @Composable
 fun SectionHeader(title: String, onSeeAll: () -> Unit) {
     val pinkTua = Color(0xFF4A0E24)

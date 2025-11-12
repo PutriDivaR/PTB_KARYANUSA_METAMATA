@@ -1,6 +1,7 @@
 package com.example.karyanusa.component.kursus
 
 
+import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.Image
@@ -13,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -33,12 +35,23 @@ import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
 import com.example.karyanusa.component.auth.LoginTokenManager
-import okhttp3.ResponseBody
-import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.common.Player
 import androidx.media3.common.MediaItem
+import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import com.example.karyanusa.network.EnrollmentCheckResponse
 import kotlinx.coroutines.launch
+import kotlin.math.floor
+import android.os.Handler
+import android.os.Looper
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material3.LinearProgressIndicator
+import com.example.karyanusa.network.EnrollmentResponse
+import android.app.Activity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -49,9 +62,49 @@ fun MateriPage(navController: NavController, kursusId: Int) {
     var isLoading by remember { mutableStateOf(true) }
     var enrollmentStatus by remember { mutableStateOf("none") } // none, ongoing, completed
     var isChecking by remember { mutableStateOf(true) }
+    var watchedIds by rememberSaveable { mutableStateOf(setOf<Int>()) } // gunakan rememberSaveable agar survive config change
+    var watchedCount by remember { mutableIntStateOf(0) }
+    var serverProgress by remember { mutableIntStateOf(0) }
+
 
     val tokenManager = LoginTokenManager(LocalContext.current)
     val token = tokenManager.getToken()
+
+
+    fun onVideoCompleted(materiId: Int) {
+        if (materiId in watchedIds) return
+        watchedIds = watchedIds + materiId
+        watchedCount = watchedIds.size
+
+        val total = materiList.size.takeIf { it > 0 } ?: 1
+        val progress = floor((watchedCount.toDouble() / total) * 100).toInt()
+
+        serverProgress = progress
+        if (progress >= 100) enrollmentStatus = "completed"
+
+        val body = mapOf("kursus_id" to kursusId, "progress" to progress)
+
+        if (token != null) {
+            RetrofitClient.instance.updateProgress("Bearer $token", body)
+                .enqueue(object : Callback<EnrollmentResponse> {
+                    override fun onResponse(
+                        call: Call<EnrollmentResponse>,
+                        response: Response<EnrollmentResponse>
+                    ) {
+                        if (response.isSuccessful) {
+                            println("Progress updated: $progress%")
+                        } else {
+                            println("Failed update progress: ${response.code()}")
+                        }
+                    }
+
+                    override fun onFailure(call: Call<EnrollmentResponse>, t: Throwable) {
+                        println("Update progress error: ${t.message}")
+                    }
+                })
+        }
+    }
+
 
     // ambil data kursus n materi
     LaunchedEffect(Unit) {
@@ -84,6 +137,12 @@ fun MateriPage(navController: NavController, kursusId: Int) {
                             val data = response.body()
                             if (data != null && data.enrolled) {
                                 enrollmentStatus = data.status ?: "none"
+                                serverProgress = data.progress ?: 0
+
+                                if (materiList.isNotEmpty()) {
+                                    watchedCount =
+                                        ((serverProgress * materiList.size) / 100.0).toInt()
+                                }
                             }
                         }
                         isChecking = false
@@ -101,6 +160,20 @@ fun MateriPage(navController: NavController, kursusId: Int) {
 
     val kursus = kursusList.find { it.kursus_id == kursusId }
     val context = LocalContext.current
+
+    val materiIdTerakhir = remember { mutableIntStateOf(0) }
+
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val videoCompleted = result.data?.getBooleanExtra("video_completed", false) ?: false
+            if (videoCompleted) {
+                onVideoCompleted(materiIdTerakhir.intValue)
+            }
+        }
+    }
+
 
     Scaffold(
         bottomBar = {
@@ -188,17 +261,34 @@ fun MateriPage(navController: NavController, kursusId: Int) {
                         }
 
                         Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = "${materiList.size} Bagian",
-                            fontSize = 14.sp,
-                            color = Color.Gray,
-                            modifier = Modifier.align(Alignment.CenterHorizontally)
+                        val total = materiList.size
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(text = "${watchedCount}/${total} Bagian", color = Color.Gray)
+                            Text(text = "$serverProgress%", color = Color.Gray)
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        LinearProgressIndicator(
+                            progress = { serverProgress / 100f },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(6.dp),
+                            color = Color(0xFF7A3E48),
+                            trackColor = Color.LightGray,
+                            strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
                         )
-
                         Spacer(modifier = Modifier.height(12.dp))
+
 
                         // Daftar video materi
                         materiList.forEach { materi ->
+                            val isWatched = materi.materi_id in watchedIds
+                            val context = LocalContext.current
+
                             Card(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -208,33 +298,96 @@ fun MateriPage(navController: NavController, kursusId: Int) {
                                 elevation = CardDefaults.cardElevation(6.dp)
                             ) {
                                 Column(modifier = Modifier.padding(12.dp)) {
-                                    // Video
-                                    AndroidView(
-                                        factory = {
-                                            val exoPlayer = ExoPlayer.Builder(context).build().apply {
-                                                val mediaItem = MediaItem.fromUri(Uri.parse(materi.video))
-                                                setMediaItem(mediaItem)
-                                                prepare()
-                                                playWhenReady = false
-                                            }
 
-                                            PlayerView(context).apply {
-                                                player = exoPlayer
-                                                useController = true
-                                                layoutParams = android.view.ViewGroup.LayoutParams(
-                                                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                                                    android.view.ViewGroup.LayoutParams.MATCH_PARENT
-                                                )
-                                            }
-                                        },
+                                    // --- Wrapper biar bisa tambah tombol fullscreen ---
+                                    Box(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .height(220.dp)
-                                    )
+                                    ) {
+                                        AndroidView(
+                                            factory = {
+                                                val exoPlayer = ExoPlayer.Builder(context).build().apply {
+                                                    val mediaItem = MediaItem.fromUri(Uri.parse(materi.video))
+                                                    setMediaItem(mediaItem)
+                                                    prepare()
+                                                    playWhenReady = false
+                                                }
 
+                                                // listener kalau video selesai
+                                                exoPlayer.addListener(object : Player.Listener {
+                                                    override fun onPlaybackStateChanged(state: Int) {
+                                                        if (state == Player.STATE_ENDED) {
+                                                            Handler(Looper.getMainLooper()).post {
+                                                                onVideoCompleted(materi.materi_id)
+                                                            }
+                                                        }
+                                                    }
+                                                })
+
+                                                PlayerView(context).apply {
+                                                    player = exoPlayer
+                                                    useController = true
+                                                    layoutParams = android.view.ViewGroup.LayoutParams(
+                                                        android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                                                        android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                                                    )
+                                                }
+                                            },
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                        )
+
+                                        IconButton(
+                                            onClick = {
+                                                try {
+                                                    materiIdTerakhir.value = materi.materi_id
+                                                    val intent = Intent(context, VideoPlayerActivity::class.java).apply {
+                                                        putExtra("video_url", materi.video)
+                                                    }
+                                                    launcher.launch(intent)
+                                                } catch (e: Exception) {
+                                                    e.printStackTrace()
+                                                    Toast.makeText(context, "Gagal membuka fullscreen", Toast.LENGTH_SHORT).show()
+                                                }
+                                            },
+                                            modifier = Modifier
+                                                .align(Alignment.TopEnd)
+                                                .padding(6.dp)
+                                                .background(Color(0x66000000), shape = CircleShape)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Fullscreen,
+                                                contentDescription = "Fullscreen",
+                                                tint = Color.White
+                                            )
+                                        }
+
+
+
+                                    }
 
                                     Spacer(modifier = Modifier.height(8.dp))
+
                                     Text(materi.judul, fontWeight = FontWeight.Bold)
+
+                                    if (isWatched) {
+                                        Button(
+                                            onClick = {},
+                                            enabled = false,
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = Color(0xFF7A3E48),
+                                                disabledContainerColor = Color(0xFF7A3E48)
+                                            ),
+                                            shape = RoundedCornerShape(20.dp),
+                                            modifier = Modifier
+                                                .align(Alignment.End)
+                                                .padding(top = 4.dp)
+                                        ) {
+                                            Text("Selesai", color = Color.White, fontSize = 12.sp)
+                                        }
+                                    }
+
                                     Text(
                                         "Durasi: ${materi.durasi} menit",
                                         fontSize = 13.sp,
@@ -244,6 +397,7 @@ fun MateriPage(navController: NavController, kursusId: Int) {
                             }
                         }
 
+
                         Spacer(modifier = Modifier.height(90.dp))
                     }
                 }
@@ -251,34 +405,6 @@ fun MateriPage(navController: NavController, kursusId: Int) {
             }
         }
     }
-}
-
-fun updateProgress(navController: NavController, kursusId: Int, watchedCount: Int, total: Int) {
-    val context = navController.context
-    val tokenManager = LoginTokenManager(context)
-    val token = tokenManager.getToken() ?: return
-
-    val progress = ((watchedCount.toFloat() / total) * 100).toInt()
-
-    val body = mapOf(
-        "kursus_id" to kursusId,
-        "progress" to progress
-    )
-
-    RetrofitClient.instance.updateProgress("Bearer $token", body)
-        .enqueue(object : Callback<ResponseBody> {
-            override fun onResponse(call: Call<ResponseBody>, response: Response<ResponseBody>) {
-                if (response.isSuccessful) {
-                    Toast.makeText(context, "Progress: $progress%", Toast.LENGTH_SHORT).show()
-                } else {
-                    Toast.makeText(context, "Gagal update progress", Toast.LENGTH_SHORT).show()
-                }
-            }
-
-            override fun onFailure(call: Call<ResponseBody>, t: Throwable) {
-                Toast.makeText(context, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
-            }
-        })
 }
 
 

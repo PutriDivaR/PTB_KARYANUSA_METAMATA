@@ -22,6 +22,7 @@ import com.example.karyanusa.component.galeri.GaleriPublikPage
 import com.example.karyanusa.component.forum.ForumAddPage
 import com.example.karyanusa.component.forum.ForumDetailPage
 import com.example.karyanusa.component.forum.ForumEditPage
+import com.example.karyanusa.component.forum.ForumNotifikasi
 import com.example.karyanusa.component.forum.ForumPage
 import com.example.karyanusa.component.kursus.DetailPage
 import com.example.karyanusa.component.kursus.KursusPage
@@ -157,6 +158,14 @@ class MainActivity : ComponentActivity() {
                     composable("editPertanyaan/{id}") { backStackEntry ->
                         val id = backStackEntry.arguments?.getString("id")?.toIntOrNull() ?: 0
                         ForumEditPage(navController = navController, questionId = id)
+                    }
+
+                    composable(
+                        "notifforum",
+                        enterTransition = { fadeIn(animationSpec = tween(400)) },
+                        exitTransition = { fadeOut(animationSpec = tween(300)) }
+                    ) {
+                        ForumNotifikasi(navController)
                     }
 
                     composable(

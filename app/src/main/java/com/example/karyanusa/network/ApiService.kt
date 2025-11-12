@@ -8,7 +8,8 @@ import retrofit2.http.Header
 import retrofit2.http.POST
 import retrofit2.http.Path
 
-// DATA TOKEN AKUN //
+
+// AUTH
 data class LoginRequest(
     val email: String,
     val password: String
@@ -22,14 +23,12 @@ data class LoginResponse(
     val nama: String?
 )
 
-// Data class untuk request
 data class RegisterRequest(
     val nama: String,
     val email: String,
     val password: String
 )
 
-// Data class untuk response
 data class RegisterResponse(
     val status: Boolean,
     val message: String,
@@ -41,6 +40,8 @@ data class UserData(
     val nama: String,
     val email: String
 )
+
+// KURSUS & MATERI
 
 data class Kursus(
     val kursus_id: Int,
@@ -58,22 +59,41 @@ data class Materi(
     val video: String?
 )
 
-// Data class untuk cek enrol user ikut kelas (kursus detail page)
+// ENROLLMENT / PROGRESS
+
 data class EnrollmentCheckResponse(
     val enrolled: Boolean,
     val status: String?,
     val progress: Int?
 )
 
+data class EnrollmentResponse(
+    val message: String,
+    val data: EnrollmentData?
+)
+
+data class EnrollmentData(
+    val enrollment_id: Int,
+    val user_id: Int,
+    val kursus_id: Int,
+    val progress: Int,
+    val status: String
+)
+
+
+// API SERVICE
 
 interface ApiService {
 
+    // --- Auth ---
     @POST("api/login")
     fun loginUser(@Body request: LoginRequest): Call<LoginResponse>
 
     @POST("api/register")
     fun registerUser(@Body request: RegisterRequest): Call<RegisterResponse>
 
+
+    // --- Kursus ---
     @GET("api/courses")
     fun getCourses(): Call<List<Kursus>>
 
@@ -82,6 +102,8 @@ interface ApiService {
         @Path("kursus_id") kursusId: Int
     ): Call<List<Materi>>
 
+
+    // --- Enrollment ---
     @POST("api/enroll")
     fun enrollCourse(
         @Header("Authorization") token: String,
@@ -94,11 +116,11 @@ interface ApiService {
         @Path("kursus_id") kursusId: Int
     ): Call<EnrollmentCheckResponse>
 
-    @POST("api/update-progress")
+
+    // --- Progress ---
+    @POST("api/enroll/progress")
     fun updateProgress(
         @Header("Authorization") token: String,
-        @Body body: Map<String, Any>
-    ): Call<ResponseBody>
-
-
+        @Body body: Map<String, Int>
+    ): Call<EnrollmentResponse>
 }
