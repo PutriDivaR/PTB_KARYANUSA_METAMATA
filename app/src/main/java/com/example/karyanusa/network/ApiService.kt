@@ -41,6 +41,7 @@ data class UserData(
     val email: String
 )
 
+
 // KURSUS & MATERI
 
 data class Kursus(
@@ -78,6 +79,10 @@ data class EnrollmentData(
     val kursus_id: Int,
     val progress: Int,
     val status: String
+)
+
+data class MateriCompletedResponse(
+    val completed: Boolean
 )
 
 
@@ -123,4 +128,22 @@ interface ApiService {
         @Header("Authorization") token: String,
         @Body body: Map<String, Int>
     ): Call<EnrollmentResponse>
+
+    @GET("api/enrollments")
+    fun getEnrollments(
+        @Header("Authorization") token: String
+    ): Call<List<EnrollmentData>>
+
+    @POST("api/materi/complete")
+    fun tandaiMateriSelesai(
+        @Header("Authorization") token: String,
+        @Body body: Map<String, Int>
+    ): Call<ResponseBody>
+
+    @GET("api/materi/{enrollmentId}/{materiId}/is-completed")
+    fun cekMateriSelesai(
+        @Header("Authorization") token: String,
+        @Path("enrollmentId") enrollmentId: Int,
+        @Path("materiId") materiId: Int
+    ): Call<MateriCompletedResponse>
 }

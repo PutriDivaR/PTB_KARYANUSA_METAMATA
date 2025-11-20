@@ -72,7 +72,7 @@ class VideoPlayerActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize()
                 )
 
-                // Tombol keluar dari fullscreen
+                // keluar fullscren
                 IconButton(
                     onClick = { finish() },
                     modifier = Modifier
