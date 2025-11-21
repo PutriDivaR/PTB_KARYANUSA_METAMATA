@@ -22,19 +22,35 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
+import com.example.karyanusa.component.beranda.NotifHelper
 import com.example.karyanusa.component.beranda.NotifikasiRepository
+import com.example.karyanusa.network.ImageHelper
+import com.example.karyanusa.network.NotifikasiData
+import com.example.karyanusa.network.RetrofitClient
+import com.example.karyanusa.network.UploadResponse
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.RequestBody.Companion.toRequestBody
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UploadKaryaPage(navController: NavController) {
+
+    val context = LocalContext.current
+
     var namaKarya by remember { mutableStateOf("") }
     var deskripsi by remember { mutableStateOf("") }
     var imageUri by remember { mutableStateOf<Uri?>(null) }
@@ -44,26 +60,27 @@ fun UploadKaryaPage(navController: NavController) {
     var snackbarMessage by remember { mutableStateOf("") }
     var isUploading by remember { mutableStateOf(false) }
 
+
     val scope = rememberCoroutineScope()
 
     val pinkTua = Color(0xFF4A0E24)
     val background = Color(0xFFFFF5F7)
     val accent = Color(0xFFFFE4EC)
 
-    // Launcher untuk ambil dari galeri
+    // Gallery Picker
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         imageUri = uri
-        capturedBitmap = null // reset jika sebelumnya ambil dari kamera
+        capturedBitmap = null
     }
 
-    // Launcher untuk ambil foto dari kamera
+    // Camera Capture
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicturePreview()
     ) { bitmap: Bitmap? ->
         capturedBitmap = bitmap
-        imageUri = null // reset jika sebelumnya ambil dari galeri
+        imageUri = null
     }
 
     Scaffold(
@@ -74,7 +91,11 @@ fun UploadKaryaPage(navController: NavController) {
                 },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "kembali", tint = pinkTua)
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "kembali",
+                            tint = pinkTua
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = accent)
@@ -88,6 +109,7 @@ fun UploadKaryaPage(navController: NavController) {
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
+
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -105,7 +127,7 @@ fun UploadKaryaPage(navController: NavController) {
 
                 Spacer(Modifier.height(20.dp))
 
-                // Preview gambar atau kotak upload
+                // ----- PREVIEW GAMBAR -----
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -114,35 +136,31 @@ fun UploadKaryaPage(navController: NavController) {
                     contentAlignment = Alignment.Center
                 ) {
                     when {
-                        capturedBitmap != null -> {
-                            Image(
-                                bitmap = capturedBitmap!!.asImageBitmap(),
-                                contentDescription = "Foto Kamera",
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
-                            )
-                        }
-                        imageUri != null -> {
-                            Image(
-                                painter = rememberAsyncImagePainter(model = imageUri),
-                                contentDescription = "Preview Gambar Karya",
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
-                            )
-                        }
-                        else -> {
-                            Text(
-                                text = "Belum ada gambar. Pilih dari galeri atau ambil foto.",
-                                color = Color.Gray,
-                                textAlign = TextAlign.Center
-                            )
-                        }
+                        capturedBitmap != null -> Image(
+                            bitmap = capturedBitmap!!.asImageBitmap(),
+                            contentDescription = "Foto Kamera",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+
+                        imageUri != null -> Image(
+                            painter = rememberAsyncImagePainter(model = imageUri),
+                            contentDescription = "Preview Galeri",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+
+                        else -> Text(
+                            text = "Belum ada gambar\nPilih galeri atau ambil foto",
+                            color = Color.Gray,
+                            textAlign = TextAlign.Center
+                        )
                     }
                 }
 
                 Spacer(Modifier.height(12.dp))
 
-                // Tombol pilih sumber gambar
+                // Tombol Galeri / Kamera
                 Row(
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     modifier = Modifier.fillMaxWidth()
@@ -155,6 +173,7 @@ fun UploadKaryaPage(navController: NavController) {
                         Spacer(Modifier.width(8.dp))
                         Text("Galeri", color = pinkTua)
                     }
+
                     OutlinedButton(
                         onClick = { cameraLauncher.launch(null) },
                         enabled = !isUploading
@@ -167,83 +186,115 @@ fun UploadKaryaPage(navController: NavController) {
 
                 Spacer(Modifier.height(20.dp))
 
-                // Input Nama Karya (max 30 karakter)
+                // Input Nama
                 OutlinedTextField(
                     value = namaKarya,
                     onValueChange = {
                         if (it.length <= 30) namaKarya = it
                     },
-                    label = { Text("Nama Karya (max 30 karakter)") },
+                    label = { Text("Nama Karya (max 30)") },
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !isUploading,
                     singleLine = true
                 )
+
                 Text(
-                    text = "${namaKarya.length}/30 karakter",
+                    text = "${namaKarya.length}/30",
                     color = Color.Gray,
                     fontSize = 12.sp,
-                    modifier = Modifier
-                        .align(Alignment.End)
-                        .padding(top = 2.dp, end = 4.dp)
+                    modifier = Modifier.align(Alignment.End)
                 )
 
                 Spacer(Modifier.height(12.dp))
 
-                // Input Deskripsi (max 200 karakter)
+                // Input Deskripsi
                 OutlinedTextField(
                     value = deskripsi,
                     onValueChange = {
                         if (it.length <= 200) deskripsi = it
                     },
-                    label = { Text("Deskripsi (max 200 karakter)") },
+                    label = { Text("Deskripsi (max 200)") },
                     modifier = Modifier.fillMaxWidth(),
                     maxLines = 4,
                     enabled = !isUploading
                 )
+
                 Text(
-                    text = "${deskripsi.length}/200 karakter",
+                    text = "${deskripsi.length}/200",
                     color = Color.Gray,
                     fontSize = 12.sp,
-                    modifier = Modifier
-                        .align(Alignment.End)
-                        .padding(top = 2.dp, end = 4.dp)
+                    modifier = Modifier.align(Alignment.End)
                 )
 
                 Spacer(Modifier.height(20.dp))
 
-                // Tombol Upload
+                // ----- BUTTON UPLOAD -----
                 Button(
                     onClick = {
-                        if (isUploading) return@Button
-                        if (namaKarya.isNotBlank() && deskripsi.isNotBlank() && (imageUri != null || capturedBitmap != null)) {
-                            isUploading = true
-
-                            val karyaBaru = Karya(
-                                id = KaryaRepository.daftarKarya.size + 1,
-                                nama = namaKarya,
-                                deskripsi = deskripsi,
-                                gambarUri = imageUri,
-                                uploader = "Vania Zhafira",
-                                gambarBitmap = capturedBitmap
-                            )
-                            KaryaRepository.daftarKarya.add(karyaBaru)
-
-                            NotifikasiRepository.tambahNotifikasi("Karya '$namaKarya' berhasil diunggah 🎉")
-
-                            snackbarMessage = "Karya '$namaKarya' berhasil diunggah!"
+                        if (imageUri == null && capturedBitmap == null) {
+                            snackbarMessage = "⚠ Foto wajib diisi!"
                             showSnackbar = true
+                            return@Button
+                        }
 
-                            scope.launch {
-                                delay(1500)
+                        isUploading = true
+
+                        val namaRB = namaKarya.toRequestBody("text/plain".toMediaTypeOrNull())
+                        val deskRB = deskripsi.toRequestBody("text/plain".toMediaTypeOrNull())
+
+                        val imagePart = when {
+                            imageUri != null -> ImageHelper.uriToMultipart(context, imageUri!!)
+                            capturedBitmap != null -> ImageHelper.bitmapToMultipart(context, capturedBitmap!!)
+                            else -> null
+                        }
+
+                        RetrofitClient.instance.uploadKarya(
+                            imagePart,
+                            namaRB,
+                            deskRB
+                        ).enqueue(object : Callback<UploadResponse> {
+                            override fun onResponse(
+                                call: Call<UploadResponse>,
+                                response: Response<UploadResponse>
+                            ) {
                                 isUploading = false
-                                navController.navigate("galeri") {
-                                    popUpTo("upload") { inclusive = true }
+
+                                if (response.isSuccessful && response.body()?.success == true) {
+
+                                    // 🎉 Panggil notifikasi
+                                    NotifHelper.showUploadSuccessNotification(context)
+
+                                        // ⏱ Dapatkan waktu sekarang
+                                        val time = SimpleDateFormat(
+                                            "dd/MM/yyyy HH:mm",
+                                            Locale.getDefault()
+                                        ).format(Date())
+
+                                        // 1️⃣ Simpan ke Notifikasi Aplikasi
+                                    NotifikasiRepository.daftarNotifikasi.add(
+                                        NotifikasiData(
+                                            judul = namaKarya,   // ← pakai input user langsung
+                                            pesan = "Karya berhasil diupload!",
+                                            waktu = time
+                                        )
+                                    )
+
+                                        // 3️⃣ Snackbar / navigasi balik
+                                        snackbarMessage = response.body()?.message ?: "Berhasil diunggah!"
+                                        showSnackbar = true
+                                        navController.popBackStack()
+                                 } else {
+                                    snackbarMessage = "Server error: ${response.code()}"
+                                    showSnackbar = true
                                 }
                             }
-                        } else {
-                            snackbarMessage = "⚠️ Semua field dan foto harus diisi!"
-                            showSnackbar = true
-                        }
+
+                            override fun onFailure(call: Call<UploadResponse>, t: Throwable) {
+                                isUploading = false
+                                snackbarMessage = "Gagal upload: ${t.message}"
+                                showSnackbar = true
+                            }
+                        })
                     },
                     enabled = !isUploading,
                     modifier = Modifier
@@ -261,7 +312,7 @@ fun UploadKaryaPage(navController: NavController) {
                 Spacer(Modifier.height(24.dp))
             }
 
-            // Snackbar cantik dari atas
+            // ----- SNACKBAR -----
             AnimatedVisibility(
                 visible = showSnackbar,
                 enter = fadeIn(),
@@ -274,6 +325,7 @@ fun UploadKaryaPage(navController: NavController) {
                     backgroundColor = accent,
                     textColor = pinkTua
                 )
+
                 LaunchedEffect(Unit) {
                     delay(2000)
                     showSnackbar = false
@@ -283,7 +335,10 @@ fun UploadKaryaPage(navController: NavController) {
     }
 }
 
-// Snackbar custom seragam warna
+
+// -------------------------------------------------
+// SNACKBAR CUSTOM
+// -------------------------------------------------
 @Composable
 fun CustomTopSnackbar(
     message: String,

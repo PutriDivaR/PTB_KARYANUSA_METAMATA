@@ -98,16 +98,22 @@ fun NotifikasiPage(navController: NavController) {
                         ) {
                             Column(Modifier.padding(16.dp)) {
                                 Text(
-                                    text = notif.pesan,
+                                    text = notif.judul,
                                     fontSize = 16.sp,
-                                    fontWeight = FontWeight.SemiBold,
+                                    fontWeight = FontWeight.Bold,
                                     color = pinkTua
+                                )
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    text = notif.pesan,
+                                    fontSize = 14.sp,
+                                    color = Color.Gray
                                 )
                                 Spacer(Modifier.height(4.dp))
                                 Text(
                                     text = notif.waktu,
-                                    color = Color.Gray,
-                                    fontSize = 13.sp
+                                    color = Color.LightGray,
+                                    fontSize = 12.sp
                                 )
                             }
                         }

@@ -1,10 +1,13 @@
 package com.example.karyanusa
 
+import android.os.Build
 import android.os.Bundle
+import android.Manifest
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
+import androidx.core.app.ActivityCompat
 import androidx.core.view.WindowCompat
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -31,11 +34,21 @@ import com.example.karyanusa.component.profile.ProfilePage
 import com.example.karyanusa.ui.theme.KaryaNusaTheme
 import com.example.karyanusa.component.galeri.UploadKaryaPage
 
+
 @OptIn(ExperimentalAnimationApi::class)
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                100
+            )
+        }
+
 
         setContent {
             KaryaNusaTheme {

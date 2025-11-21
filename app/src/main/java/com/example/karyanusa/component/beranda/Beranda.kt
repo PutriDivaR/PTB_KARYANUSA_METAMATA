@@ -179,7 +179,7 @@ fun BerandaPage(navController: NavController) {
 
             Spacer(Modifier.height(20.dp))
 
-            // 🔹 MY GALLERY
+
             // 🔹 MY GALLERY
             SectionHeader(
                 title = "MY GALLERY",
