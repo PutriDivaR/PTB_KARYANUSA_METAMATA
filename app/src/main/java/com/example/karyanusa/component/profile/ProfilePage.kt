@@ -7,13 +7,23 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.MenuBook
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.AddAPhoto
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,12 +38,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import coil.request.ImageRequest
+import com.example.karyanusa.R
 import com.example.karyanusa.component.forum.ImageUtils
-
-// Di dalam file ProfilePage.kt
+import com.example.karyanusa.component.auth.LoginTokenManager
+import com.example.karyanusa.network.Kursus
+import com.example.karyanusa.network.EnrollmentData
+import com.example.karyanusa.network.RetrofitClient
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,12 +55,10 @@ fun ProfilePage(navController: NavController) {
     val context = LocalContext.current
 
     var isEditing by remember { mutableStateOf(false) }
-
     var nama by remember { mutableStateOf("Putri Diva Riyanti") }
     var username by remember { mutableStateOf("@putrididip") }
     var bio by remember { mutableStateOf("Virgo Ni Bossttt") }
 
-    // Simpan nilai asli untuk deteksi perubahan
     var originalNama by remember { mutableStateOf(nama) }
     var originalUsername by remember { mutableStateOf(username) }
     var originalBio by remember { mutableStateOf(bio) }
@@ -56,7 +68,6 @@ fun ProfilePage(navController: NavController) {
     var showConfirmDialog by remember { mutableStateOf(false) }
     var cameraImageUri by remember { mutableStateOf<Uri?>(null) }
 
-    // === Kamera ===
     val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
         if (success && cameraImageUri != null) profileImageUri = cameraImageUri
     }
@@ -73,9 +84,75 @@ fun ProfilePage(navController: NavController) {
         }
     }
 
-    // === Galeri ===
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) profileImageUri = uri
+    }
+
+    // enrolled kursus (yang dah diikuti)
+    var enrolledKursus by remember { mutableStateOf<List<Kursus>>(emptyList()) }
+    var isLoadingEnrollments by remember { mutableStateOf(true) }
+
+    // ambil token
+    val token = LoginTokenManager(context).getToken()
+
+    // Load enroll
+    LaunchedEffect(Unit) {
+        if (token == null) {
+            enrolledKursus = emptyList()
+            isLoadingEnrollments = false
+            return@LaunchedEffect
+        }
+
+        // Get enroll
+        RetrofitClient.instance.getEnrollments("Bearer $token")
+            .enqueue(object : Callback<List<EnrollmentData>> {
+                override fun onResponse(
+                    call: Call<List<EnrollmentData>>,
+                    response: Response<List<EnrollmentData>>
+                ) {
+                    if (!response.isSuccessful) {
+                        enrolledKursus = emptyList()
+                        isLoadingEnrollments = false
+                        return
+                    }
+
+                    val enrollments = response.body() ?: emptyList()
+                    if (enrollments.isEmpty()) {
+                        enrolledKursus = emptyList()
+                        isLoadingEnrollments = false
+                        return
+                    }
+
+                    val temp = mutableListOf<Kursus>()
+                    var done = 0
+                    enrollments.forEach { enroll ->
+                        RetrofitClient.instance.getKursusById(enroll.kursus_id)
+                            .enqueue(object : Callback<Kursus> {
+                                override fun onResponse(call: Call<Kursus>, res: Response<Kursus>) {
+                                    res.body()?.let { temp.add(it) }
+                                    done++
+                                    if (done == enrollments.size) {
+                                        enrolledKursus = temp
+                                        isLoadingEnrollments = false
+                                    }
+                                }
+
+                                override fun onFailure(call: Call<Kursus>, t: Throwable) {
+                                    done++
+                                    if (done == enrollments.size) {
+                                        enrolledKursus = temp
+                                        isLoadingEnrollments = false
+                                    }
+                                }
+                            })
+                    }
+                }
+
+                override fun onFailure(call: Call<List<EnrollmentData>>, t: Throwable) {
+                    enrolledKursus = emptyList()
+                    isLoadingEnrollments = false
+                }
+            })
     }
 
     Scaffold(
@@ -106,7 +183,6 @@ fun ProfilePage(navController: NavController) {
             }
         }
     ) { innerPadding ->
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -114,6 +190,7 @@ fun ProfilePage(navController: NavController) {
                 .background(Color(0xFFFFF5F7)),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // header
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -128,8 +205,6 @@ fun ProfilePage(navController: NavController) {
                         .padding(20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-
-                    // === Header Card ===
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -146,24 +221,16 @@ fun ProfilePage(navController: NavController) {
                             IconButton(
                                 onClick = {
                                     val changed = nama != originalNama || username != originalUsername || bio != originalBio
-                                    if (changed) {
-                                        showConfirmDialog = true
-                                    } else {
-                                        isEditing = false
-                                    }
+                                    if (changed) showConfirmDialog = true else isEditing = false
                                 },
                                 modifier = Modifier.align(Alignment.CenterStart)
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.ArrowBack,
-                                    contentDescription = "Kembali",
-                                    tint = Color(0xFF4A0E24)
-                                )
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali", tint = Color(0xFF4A0E24))
                             }
                         }
                     }
 
-                    // === Foto Profil ===
+                    // Profile picture
                     Box(modifier = Modifier.size(110.dp), contentAlignment = Alignment.BottomEnd) {
                         if (profileImageUri != null) {
                             Image(
@@ -180,12 +247,7 @@ fun ProfilePage(navController: NavController) {
                                     .background(Color(0xFF4A0E24)),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Person,
-                                    contentDescription = "Profile Picture",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(50.dp)
-                                )
+                                Icon(Icons.Default.Person, contentDescription = "Profile Picture", tint = Color.White, modifier = Modifier.size(50.dp))
                             }
                         }
 
@@ -194,19 +256,14 @@ fun ProfilePage(navController: NavController) {
                                 onClick = { showPhotoOptions = true },
                                 modifier = Modifier.size(32.dp).background(Color.White, CircleShape)
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.CameraAlt,
-                                    contentDescription = "Edit Foto",
-                                    tint = Color(0xFF4A0E24),
-                                    modifier = Modifier.size(18.dp)
-                                )
+                                Icon(Icons.Default.CameraAlt, contentDescription = "Edit Foto", tint = Color(0xFF4A0E24), modifier = Modifier.size(18.dp))
                             }
                         }
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // === Info Profil ===
+                    // Info section
                     Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.Start) {
                         if (isEditing) {
                             EditableProfileField("Nama", nama) { nama = it }
@@ -218,17 +275,14 @@ fun ProfilePage(navController: NavController) {
                             ProfileInfoRow("Bio", bio)
                         }
                         ProfileInfoRow("Karya", "4")
-                        ProfileInfoRow("Kursus", "10")
+                        ProfileInfoRow("Kursus", enrolledKursus.size.toString())
                     }
 
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    // === Tombol Edit / Simpan ===
-                    // === Tombol Edit / Simpan ===
                     Button(
                         onClick = {
                             if (isEditing) {
-                                // Simpan perubahan
                                 originalNama = nama
                                 originalUsername = username
                                 originalBio = bio
@@ -236,41 +290,59 @@ fun ProfilePage(navController: NavController) {
                             }
                             isEditing = !isEditing
                         },
-                        colors = if (isEditing)
-                            ButtonDefaults.buttonColors(containerColor = Color(0xFF4A0E24)) // warna pekat saat SIMPAN
-                        else
-                            ButtonDefaults.buttonColors(containerColor = Color.White),       // putih saat EDIT PROFILE
+                        colors = if (isEditing) ButtonDefaults.buttonColors(containerColor = Color(0xFF4A0E24)) else ButtonDefaults.buttonColors(containerColor = Color.White),
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text(
-                            if (isEditing) "Simpan" else "Edit Profile",
-                            color = if (isEditing) Color.White else Color(0xFF4A0E24),
-                            fontWeight = FontWeight.Bold
-                        )
+                        Text(if (isEditing) "Simpan" else "Edit Profile", color = if (isEditing) Color.White else Color(0xFF4A0E24), fontWeight = FontWeight.Bold)
                     }
-
                 }
             }
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            Text("Kelas Saya", fontWeight = FontWeight.Bold, color = Color(0xFF4A0E24), fontSize = 18.sp, modifier = Modifier.padding(bottom = 8.dp))
-
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+            // Kelas Saya header
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                items(listOf("Pembuatan Kain Batik Tulis", "Judul", "Gambar", "Gambar")) { item ->
-                    ClassCard(item)
+                Text("Kelas Saya", fontWeight = FontWeight.Bold, color = Color(0xFF4A0E24), fontSize = 18.sp)
+                Text("${enrolledKursus.size}", color = Color.Gray, fontSize = 14.sp)
+            }
+
+            if (isLoadingEnrollments) {
+                Box(modifier = Modifier.fillMaxWidth().height(120.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
                 }
+            } else if (enrolledKursus.isEmpty()) {
+                Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                    Text("Belum ada kelas yang diikuti.", color = Color.Gray)
+                }
+            } else {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(enrolledKursus) { kursus ->
+                        SmallCourseCard(kursus = kursus) {
+                            navController.navigate("detail/${kursus.kursus_id}")
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
             }
         }
     }
 
-    // === Dialog Konfirmasi Keluar Edit ===
+    // Confirm batal edit
     if (showConfirmDialog) {
         AlertDialog(
             onDismissRequest = { showConfirmDialog = false },
@@ -296,7 +368,7 @@ fun ProfilePage(navController: NavController) {
         )
     }
 
-    // === Dialog Pilihan Foto ===
+    // Photo options dialog
     if (showPhotoOptions) {
         AlertDialog(
             onDismissRequest = { showPhotoOptions = false },
@@ -339,9 +411,55 @@ fun ProfilePage(navController: NavController) {
     }
 }
 
+// card daftar kursus diikuti user
+@Composable
+fun SmallCourseCard(kursus: Kursus, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .height(160.dp)
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(4.dp)
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            Image(
+                painter = rememberAsyncImagePainter(
+                    ImageRequest.Builder(LocalContext.current)
+                        .data(kursus.thumbnail)
+                        .placeholder(R.drawable.tessampul)
+                        .error(R.drawable.tessampul)
+                        .build()
+                ),
+                contentDescription = kursus.judul,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
 
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+                    .background(Color.White.copy(alpha = 0.85f))
+                    .padding(8.dp)
+            ) {
+                Column {
+                    Text(
+                        text = kursus.judul,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF4A0E24),
+                        fontSize = 14.sp,
+                        maxLines = 2
+                    )
+                }
+            }
+        }
+    }
+}
 
-// === Komponen Info Profil ===
+// helper components
+
 @Composable
 fun ProfileInfoRow(label: String, value: String) {
     Row(
@@ -355,7 +473,6 @@ fun ProfileInfoRow(label: String, value: String) {
     }
 }
 
-// === Editable Field ===
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditableProfileField(label: String, value: String, onValueChange: (String) -> Unit) {
@@ -366,12 +483,7 @@ fun EditableProfileField(label: String, value: String, onValueChange: (String) -
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = label,
-            color = Color(0xFF4A0E24),
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Medium
-        )
+        Text(text = label, color = Color(0xFF4A0E24), fontSize = 14.sp, fontWeight = FontWeight.Medium)
         TextField(
             value = value,
             onValueChange = onValueChange,
@@ -389,46 +501,5 @@ fun EditableProfileField(label: String, value: String, onValueChange: (String) -
             ),
             modifier = Modifier.widthIn(min = 120.dp)
         )
-    }
-}
-
-// === Kartu Kelas ===
-@Composable
-fun ClassCard(title: String) {
-    Card(
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFE4EC)),
-        elevation = CardDefaults.cardElevation(2.dp),
-        modifier = Modifier
-            .height(140.dp)
-            .fillMaxWidth()
-    ) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.BottomCenter
-        ) {
-            if (title == "Pembuatan Kain Batik Tulis") {
-                Image(
-                    painter = rememberAsyncImagePainter("https://example.com/batik.jpg"),
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
-            }
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color.White.copy(alpha = 0.7f))
-                    .padding(8.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = title,
-                    color = Color(0xFF4A0E24),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp
-                )
-            }
-        }
     }
 }

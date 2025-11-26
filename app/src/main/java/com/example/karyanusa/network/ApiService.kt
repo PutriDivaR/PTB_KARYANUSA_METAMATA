@@ -81,6 +81,9 @@ data class EnrollmentData(
     val status: String
 )
 
+
+
+
 data class MateriCompletedResponse(
     val completed: Boolean
 )
@@ -101,6 +104,11 @@ interface ApiService {
     // --- Kursus ---
     @GET("api/courses")
     fun getCourses(): Call<List<Kursus>>
+
+    @GET("api/courses/{id}")
+    fun getKursusById(
+        @Path("id") id: Int
+    ): Call<Kursus>
 
     @GET("api/materi/{kursus_id}")
     fun getMateriByKursus(
@@ -133,6 +141,7 @@ interface ApiService {
     fun getEnrollments(
         @Header("Authorization") token: String
     ): Call<List<EnrollmentData>>
+
 
     @POST("api/materi/complete")
     fun tandaiMateriSelesai(
