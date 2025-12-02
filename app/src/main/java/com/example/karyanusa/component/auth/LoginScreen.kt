@@ -64,7 +64,7 @@ fun LoginScreen(navController: NavController) {
             OutlinedTextField(
                 value = username,
                 onValueChange = { username = it },
-                label = { Text("Email") },
+                label = { Text("Username") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
@@ -97,7 +97,7 @@ fun LoginScreen(navController: NavController) {
 
             Button(
                 onClick = {
-                    val loginRequest = LoginRequest(email = username, password = password)
+                    val loginRequest = LoginRequest(username = username, password = password)
 
                     RetrofitClient.instance.loginUser(loginRequest).enqueue(object : Callback<LoginResponse> {
                         override fun onResponse(

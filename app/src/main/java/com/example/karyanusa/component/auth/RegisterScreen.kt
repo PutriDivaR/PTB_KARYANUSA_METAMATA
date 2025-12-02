@@ -79,7 +79,7 @@ fun RegisterScreen(navController: NavController) {
             OutlinedTextField(
                 value = username,
                 onValueChange = { username = it },
-                label = { Text("Email") },
+                label = { Text("Username") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
@@ -119,7 +119,7 @@ fun RegisterScreen(navController: NavController) {
 
                     val request = RegisterRequest(
                         nama = fullName,
-                        email = username,
+                        username = username,
                         password = password
                     )
 
