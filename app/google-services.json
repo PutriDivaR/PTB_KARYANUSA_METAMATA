@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "505953089218",
+    "project_id": "karyanusa-25",
+    "storage_bucket": "karyanusa-25.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:505953089218:android:06e83ad448d4be7efd6d5b",
+        "android_client_info": {
+          "package_name": "com.example.karyanusa"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAlpAVakdlu0HFhJn0jlm7lVRRPzAdCWgU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

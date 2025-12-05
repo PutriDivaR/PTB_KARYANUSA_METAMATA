@@ -11,12 +11,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.MenuBook
-import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,73 +24,144 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.material.icons.filled.Notifications
-
+import android.widget.Toast
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import com.example.karyanusa.component.auth.LoginTokenManager
+import com.example.karyanusa.network.ForumPertanyaanResponse
+import com.example.karyanusa.network.RetrofitClient
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
+import java.text.SimpleDateFormat
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ForumPage(navController: NavController) {
+
+    // State untuk tab dan filter
     var selectedTab by remember { mutableStateOf("all") }
     var selectedFilter by remember { mutableStateOf("all") }
-    var replyingTo by remember { mutableStateOf<Int?>(null) }
-    var replyText by remember { mutableStateOf("") }
 
-    val allQuestions = ForumData.questions
+    // State untuk API
+    var isLoading by remember { mutableStateOf(true) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var allQuestions by remember { mutableStateOf<List<ForumPertanyaanResponse>>(emptyList()) }
 
-    // Filter pertanyaan
-    val filteredQuestions = allQuestions.filter { question ->
-        val matchesTab = if (selectedTab == "my") question.isMyQuestion else true
-        val matchesFilter = when (selectedFilter) {
-            "answered" -> question.isAnswered
-            "unanswered" -> !question.isAnswered
-            else -> true
-        }
-        matchesTab && matchesFilter
-    }
-
-    // Hitung jumlah filter
-    val currentQuestions = if (selectedTab == "my") {
-        allQuestions.filter { it.isMyQuestion }
-    } else {
-        allQuestions
-    }
-    val allCount = currentQuestions.size
-    val unansweredCount = currentQuestions.count { !it.isAnswered }
-    val answeredCount = currentQuestions.count { it.isAnswered }
-
+    // State untuk delete
     var showDeleteDialog by remember { mutableStateOf(false) }
     var questionToDelete by remember { mutableStateOf<Int?>(null) }
+    var isDeleting by remember { mutableStateOf(false) }
 
+    val context = LocalContext.current
+    val tokenManager = remember { LoginTokenManager(context) }
+    val token = tokenManager.getToken()
 
-    // Update status answered otomatis
-    LaunchedEffect(allQuestions) {
-        allQuestions.forEachIndexed { index, question ->
-            val shouldBeAnswered = question.replies > 0
-            if (question.isAnswered != shouldBeAnswered) {
-                allQuestions[index] = question.copy(isAnswered = shouldBeAnswered)
+    // ✅ PERBAIKAN: Ambil user ID dari token
+    val currentUserId = tokenManager.getUserId()
+
+    // Fungsi untuk load semua pertanyaan dari API
+    fun loadAllQuestions() {
+        isLoading = true
+        errorMessage = null
+
+        if (token.isNullOrEmpty()) {
+            isLoading = false
+            errorMessage = "Sesi Anda telah berakhir. Silakan login kembali."
+            return
+        }
+
+        RetrofitClient.instance.getPertanyaan("Bearer $token")
+            .enqueue(object : Callback<List<ForumPertanyaanResponse>> {
+                override fun onResponse(
+                    call: Call<List<ForumPertanyaanResponse>>,
+                    response: Response<List<ForumPertanyaanResponse>>
+                ) {
+                    isLoading = false
+                    if (response.isSuccessful) {
+                        allQuestions = response.body() ?: emptyList()
+                    } else if (response.code() == 401) {
+                        errorMessage = "Autentikasi gagal. Silakan login kembali."
+                    } else {
+                        val errorText = response.errorBody()?.string()
+                        errorMessage = "Gagal memuat data (${response.code()}): $errorText"
+                    }
+                }
+
+                override fun onFailure(call: Call<List<ForumPertanyaanResponse>>, t: Throwable) {
+                    isLoading = false
+                    errorMessage = "Koneksi gagal: ${t.message}"
+                }
+            })
+    }
+
+    // ✅ Fungsi format tanggal
+    fun formatTanggal(tanggal: String): String {
+        val indonesiaLocale = Locale.Builder().setLanguage("id").setRegion("ID").build()
+        return try {
+            val cleanedDate = tanggal.replace(Regex("\\.\\d+Z"), "Z")
+            val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.getDefault())
+            inputFormat.timeZone = TimeZone.getTimeZone("UTC")
+            val outputFormat = SimpleDateFormat("dd MMM yyyy, HH:mm", indonesiaLocale)
+            val date = inputFormat.parse(cleanedDate)
+            outputFormat.format(date ?: Date())
+        } catch (_: Exception) {
+            try {
+                val inputFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+                val outputFormat = SimpleDateFormat("dd MMM yyyy, HH:mm", indonesiaLocale)
+                val date = inputFormat.parse(tanggal)
+                outputFormat.format(date ?: Date())
+            } catch (_: Exception) {
+                "Baru saja"
             }
         }
     }
 
-    // Tambah balasan
-    fun addReply(questionId: Int) {
-        val index = allQuestions.indexOfFirst { it.id == questionId }
-        if (index != -1) {
-            val updated = allQuestions[index].copy(
-                replies = allQuestions[index].replies + 1,
-                isAnswered = true
-            )
-            allQuestions[index] = updated
+    // Load data pertama kali dan saat kembali dari halaman lain
+    LaunchedEffect(navController.currentBackStackEntry) {
+        loadAllQuestions()
+    }
+
+    // ✅ Filter pertanyaan berdasarkan tab dan filter (FIX: gunakan currentUserId dari token)
+    val filteredQuestions = remember(allQuestions, selectedTab, selectedFilter, currentUserId) {
+        allQuestions.filter { question ->
+            // Filter berdasarkan tab
+            val matchesTab = if (selectedTab == "my") {
+                question.user_id == currentUserId
+            } else {
+                true
+            }
+
+            // Filter berdasarkan status jawaban
+            val matchesFilter = when (selectedFilter) {
+                "answered" -> !question.jawaban.isNullOrEmpty()
+                "unanswered" -> question.jawaban.isNullOrEmpty()
+                else -> true
+            }
+
+            matchesTab && matchesFilter
         }
     }
+
+    // ✅ Hitung jumlah untuk filter chips (FIX: gunakan currentUserId dari token)
+    val currentQuestions = remember(allQuestions, selectedTab, currentUserId) {
+        if (selectedTab == "my") {
+            allQuestions.filter { it.user_id == currentUserId }
+        } else {
+            allQuestions
+        }
+    }
+
+    val allCount = currentQuestions.size
+    val unansweredCount = currentQuestions.count { it.jawaban.isNullOrEmpty() }
+    val answeredCount = currentQuestions.count { !it.jawaban.isNullOrEmpty() }
 
     Scaffold(
         topBar = {
@@ -134,7 +205,7 @@ fun ForumPage(navController: NavController) {
                         .padding(horizontal = 20.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    IconButton(onClick = { navController.navigate("home") }) {
+                    IconButton(onClick = { navController.navigate("beranda") }) {
                         Icon(Icons.Default.Home, contentDescription = "Home", tint = Color(0xFF4A0E24))
                     }
                     IconButton(onClick = { navController.navigate("forum") }) {
@@ -143,7 +214,7 @@ fun ForumPage(navController: NavController) {
                     IconButton(onClick = { navController.navigate("kursus") }) {
                         Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = "Kursus", tint = Color(0xFF4A0E24))
                     }
-                    IconButton(onClick = { navController.navigate("gallery") }) {
+                    IconButton(onClick = { navController.navigate("galeri") }) {
                         Icon(Icons.Default.AddAPhoto, contentDescription = "Galeri", tint = Color(0xFF4A0E24))
                     }
                     IconButton(onClick = { navController.navigate("profile") }) {
@@ -169,8 +240,33 @@ fun ForumPage(navController: NavController) {
                 .padding(innerPadding)
                 .background(Color(0xFFFFF5F7))
         ) {
+            // Tampilan Loading
+            if (isLoading) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = Color(0xFF4A0E24))
+                }
+                return@Scaffold
+            }
+
+            // Tampilan Error
+            if (errorMessage != null) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("Error: $errorMessage", color = Color.Red, fontSize = 14.sp)
+                        Spacer(Modifier.height(16.dp))
+                        Button(
+                            onClick = { loadAllQuestions() },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4A0E24))
+                        ) {
+                            Text("Coba Lagi")
+                        }
+                    }
+                }
+                return@Scaffold
+            }
+
             Column(modifier = Modifier.fillMaxSize()) {
-                // 🔹 Tab atas
+                // Tab atas
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -191,7 +287,7 @@ fun ForumPage(navController: NavController) {
                     )
                 }
 
-                // 🔹 Filter Chips
+                // Filter Chips
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -219,51 +315,57 @@ fun ForumPage(navController: NavController) {
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // 🔹 List Pertanyaan
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 16.dp)
-                ) {
-                    items(filteredQuestions) { question ->
-                        var expandedMenu by remember { mutableStateOf(false) }
-
-                        QuestionCard(
-                            question = question,
-                            isReplying = replyingTo == question.id,
-                            replyText = replyText,
-                            onReplyClick = {
-                                replyingTo = if (replyingTo == question.id) null else question.id
-                                replyText = ""
-                            },
-                            onReplyTextChange = { replyText = it },
-                            onSendReply = {
-                                if (replyText.isNotBlank()) {
-                                    addReply(question.id)
-                                    replyingTo = null
-                                    replyText = ""
-                                }
-                            },
-                            onCardClick = {
-                                navController.navigate("forumDetail/${question.id}")
-                            },
-                            expandedMenu = expandedMenu,
-                            onMenuClick = { expandedMenu = !expandedMenu },
-                            onDismissMenu = { expandedMenu = false },
-                            onEditClick = {
-                                expandedMenu = false
-                                navController.navigate("editPertanyaan/${question.id}")
-                            },
-                            onDeleteClick = {
-                                expandedMenu = false
-                                questionToDelete = question.id
-                                showDeleteDialog = true
-                            }
+                // List Pertanyaan
+                if (filteredQuestions.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (selectedTab == "my") "Kamu belum membuat pertanyaan" else "Belum ada pertanyaan",
+                            color = Color.Gray,
+                            fontSize = 14.sp
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 16.dp)
+                    ) {
+                        items(filteredQuestions) { question ->
+                            var expandedMenu by remember { mutableStateOf(false) }
+                            val isMyQuestion = question.user_id == currentUserId
+
+                            QuestionCard(
+                                question = question,
+                                isMyQuestion = isMyQuestion,
+                                formatTanggal = { formatTanggal(it) },
+                                onCardClick = {
+                                    navController.navigate("forumDetail/${question.pertanyaan_id}")
+                                },
+                                expandedMenu = expandedMenu,
+                                onMenuClick = { expandedMenu = !expandedMenu },
+                                onDismissMenu = { expandedMenu = false },
+                                onEditClick = {
+                                    expandedMenu = false
+                                    navController.navigate("editPertanyaan/${question.pertanyaan_id}")
+                                },
+                                onDeleteClick = {
+                                    expandedMenu = false
+                                    questionToDelete = question.pertanyaan_id
+                                    showDeleteDialog = true
+                                }
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
                     }
                 }
             }
+
+            // Delete Dialog
             if (showDeleteDialog && questionToDelete != null) {
                 AlertDialog(
                     onDismissRequest = { showDeleteDialog = false },
@@ -275,7 +377,8 @@ fun ForumPage(navController: NavController) {
                     },
                     confirmButton = {
                         TextButton(onClick = {
-                            ForumData.deleteQuestion(questionToDelete!!)
+                            // TODO: Implementasi API delete
+                            Toast.makeText(context, "Fitur hapus belum tersedia", Toast.LENGTH_SHORT).show()
                             showDeleteDialog = false
                             questionToDelete = null
                         }) {
@@ -294,13 +397,11 @@ fun ForumPage(navController: NavController) {
                     tonalElevation = 4.dp
                 )
             }
-
         }
     }
 }
 
-
-// 🔸 Sub-komponen
+// Sub-komponen
 @Composable
 fun TabButton(text: String, isSelected: Boolean, onClick: () -> Unit) {
     Text(
@@ -334,12 +435,9 @@ fun FilterChip(text: String, isSelected: Boolean, onClick: () -> Unit) {
 
 @Composable
 fun QuestionCard(
-    question: Question,
-    isReplying: Boolean,
-    replyText: String,
-    onReplyClick: () -> Unit,
-    onReplyTextChange: (String) -> Unit,
-    onSendReply: () -> Unit,
+    question: ForumPertanyaanResponse,
+    isMyQuestion: Boolean,
+    formatTanggal: (String) -> String,
     onCardClick: () -> Unit,
     expandedMenu: Boolean,
     onMenuClick: () -> Unit,
@@ -357,7 +455,7 @@ fun QuestionCard(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
 
-            // 🔹 Header: Avatar, Nama, Username, dan Titik Tiga
+            // Header: Avatar, Nama, Username, dan Titik Tiga
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -369,7 +467,7 @@ fun QuestionCard(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = question.displayName.first().toString(),
+                        text = (question.user?.nama?.firstOrNull() ?: "?").toString(),
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp
@@ -381,22 +479,22 @@ fun QuestionCard(
                 Column(modifier = Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = question.displayName,
+                            text = question.user?.nama ?: "Anonymous",
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF4A0E24),
                             fontSize = 14.sp
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "@${question.username} · ${question.time}",
+                            text = "@${question.user?.email ?: "user"} · ${formatTanggal(question.tanggal)}",
                             color = Color.Gray,
                             fontSize = 12.sp
                         )
                     }
                 }
 
-                // 🔹 Titik Tiga di Pojok Kanan Atas
-                if (question.isMyQuestion) {
+                // Titik Tiga di Pojok Kanan Atas (hanya untuk pertanyaan saya)
+                if (isMyQuestion) {
                     Box {
                         IconButton(onClick = onMenuClick) {
                             Icon(
@@ -424,70 +522,38 @@ fun QuestionCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // 🔹 Isi Pertanyaan
+            // Isi Pertanyaan
             Text(
-                text = question.question,
+                text = question.isi,
                 fontSize = 14.sp,
                 color = Color(0xFF4A0E24),
                 lineHeight = 20.sp
             )
 
-            if (question.imageUris.isNotEmpty()) {
+            // Gambar (jika ada)
+            if (!question.image_forum.isNullOrEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
-
-                if (question.imageUris.size == 1) {
-                    // 1 gambar - full width
-                    Image(
-                        painter = rememberAsyncImagePainter(question.imageUris.first()),
-                        contentDescription = null,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 180.dp, max = 300.dp)
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(Color.LightGray),
-                        contentScale = ContentScale.Crop
-                    )
-                } else {
-                    // Banyak gambar - tampil dalam grid
-                    val columnCount = if (question.imageUris.size == 2) 2 else 2 // tampil 2 kolom
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(columnCount),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 400.dp)
-                            .clip(RoundedCornerShape(16.dp)),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        userScrollEnabled = false // biar tidak perlu scroll dalam card
-                    ) {
-                        items(question.imageUris.take(4)) { uri ->
-                            Image(
-                                painter = rememberAsyncImagePainter(uri),
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .aspectRatio(1f)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(Color.LightGray),
-                                contentScale = ContentScale.Crop
-                            )
-                        }
-                    }
-                }
+                Image(
+                    painter = rememberAsyncImagePainter(question.image_forum),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 180.dp, max = 300.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color.LightGray),
+                    contentScale = ContentScale.Crop
+                )
             }
-
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // 🔹 Balasan & Kategori (icon balasan bisa diklik)
+            // Balasan
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.clickable { onReplyClick() }
-                ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.Chat,
                         contentDescription = "Balasan",
@@ -496,64 +562,13 @@ fun QuestionCard(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "${question.replies} Balasan",
+                        text = "${question.jawaban?.size ?: 0} Balasan",
                         fontSize = 13.sp,
                         color = Color(0xFF4A0E24),
                         fontWeight = FontWeight.Medium
                     )
                 }
-
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = Color.White,
-                    shadowElevation = 2.dp
-                ) {
-                    Text(
-                        text = question.category,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                        fontSize = 12.sp,
-                        color = Color(0xFF4A0E24),
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            }
-
-            // 🔹 Input Balasan (muncul ketika diklik)
-            if (isReplying) {
-                Spacer(modifier = Modifier.height(10.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    OutlinedTextField(
-                        value = replyText,
-                        onValueChange = onReplyTextChange,
-                        placeholder = { Text("Tulis balasan...") },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(8.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color(0xFF4A0E24),
-                            unfocusedBorderColor = Color.Gray
-                        )
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    IconButton(
-                        onClick = onSendReply,
-                        modifier = Modifier
-                            .size(40.dp)
-                            .background(Color(0xFF4A0E24), CircleShape)
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.Send,
-                            contentDescription = "Kirim",
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
             }
         }
     }
 }
-
-

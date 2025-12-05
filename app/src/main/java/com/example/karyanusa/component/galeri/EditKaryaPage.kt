@@ -1,5 +1,6 @@
 package com.example.karyanusa.component.galeri
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -7,9 +8,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.example.karyanusa.component.auth.LoginTokenManager
 import com.example.karyanusa.network.KaryaData
 import com.example.karyanusa.network.KaryaResponse
 import com.example.karyanusa.network.RetrofitClient
@@ -27,55 +30,88 @@ fun EditKaryaPage(
     navController: NavController,
     karyaId: Int
 ) {
+    val context = LocalContext.current
+    val tokenManager = LoginTokenManager(context)
+    val token = tokenManager.getToken()
 
     var loading by remember { mutableStateOf(true) }
     var karya by remember { mutableStateOf<KaryaData?>(null) }
-
     var nama by remember { mutableStateOf("") }
     var deskripsi by remember { mutableStateOf("") }
-    var pesan by remember { mutableStateOf("") }
+    var isSaving by remember { mutableStateOf(false) }
 
-    // 🔥 Load data dari server berdasarkan ID
-    LaunchedEffect(Unit) {
-        RetrofitClient.instance.getKarya().enqueue(object : Callback<KaryaResponse> {
-            override fun onResponse(
-                call: Call<KaryaResponse>,
-                response: Response<KaryaResponse>
-            ) {
-                if (response.isSuccessful && response.body()?.status == true) {
-                    val all = response.body()!!.data
-                    karya = all.find { it.galeri_id == karyaId }
-
-                    karya?.let {
-                        nama = it.judul
-                        deskripsi = it.caption
-                    }
-                }
-                loading = false
+    // Cek token dulu
+    if (token == null) {
+        LaunchedEffect(Unit) {
+            Toast.makeText(context, "Harap login terlebih dahulu", Toast.LENGTH_SHORT).show()
+            navController.navigate("login") {
+                popUpTo(0) { inclusive = true }
             }
-
-            override fun onFailure(call: Call<KaryaResponse>, t: Throwable) {
-                loading = false
-            }
-        })
+        }
+        return
     }
 
+    // Load data karya
+    LaunchedEffect(Unit) {
+        RetrofitClient.instance.getMyKarya("Bearer $token")
+            .enqueue(object : Callback<KaryaResponse> {
+                override fun onResponse(
+                    call: Call<KaryaResponse>,
+                    response: Response<KaryaResponse>
+                ) {
+                    if (response.isSuccessful && response.body()?.status == true) {
+                        val allKarya = response.body()?.data ?: emptyList()
+                        karya = allKarya.find { it.galeri_id == karyaId }
+
+                        karya?.let {
+                            nama = it.judul
+                            deskripsi = it.caption
+                        }
+                    } else {
+                        Toast.makeText(context, "Gagal memuat data karya", Toast.LENGTH_SHORT).show()
+                    }
+                    loading = false
+                }
+
+                override fun onFailure(call: Call<KaryaResponse>, t: Throwable) {
+                    Toast.makeText(context, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+                    loading = false
+                }
+            })
+    }
+
+    // Loading state
     if (loading) {
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            CircularProgressIndicator()
+            CircularProgressIndicator(color = Color(0xFF4A0E24))
         }
         return
     }
 
+    // Karya tidak ditemukan
     if (karya == null) {
-        Text(
-            text = "Karya tidak ditemukan.",
-            color = Color.Red,
-            modifier = Modifier.padding(20.dp)
-        )
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "Karya tidak ditemukan atau Anda tidak memiliki akses",
+                    color = Color.Red,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.height(12.dp))
+                Button(
+                    onClick = { navController.popBackStack() },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4A0E24))
+                ) {
+                    Text("Kembali", color = Color.White)
+                }
+            }
+        }
         return
     }
 
@@ -89,7 +125,6 @@ fun EditKaryaPage(
             )
         }
     ) { innerPadding ->
-
         Column(
             modifier = Modifier
                 .padding(innerPadding)
@@ -97,12 +132,16 @@ fun EditKaryaPage(
                 .background(Color(0xFFFFF5F7))
                 .padding(20.dp)
         ) {
-
             OutlinedTextField(
                 value = nama,
                 onValueChange = { nama = it },
                 label = { Text("Nama Karya") },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isSaving,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFF4A0E24),
+                    focusedLabelColor = Color(0xFF4A0E24)
+                )
             )
 
             Spacer(Modifier.height(12.dp))
@@ -112,7 +151,12 @@ fun EditKaryaPage(
                 onValueChange = { deskripsi = it },
                 label = { Text("Deskripsi") },
                 modifier = Modifier.fillMaxWidth(),
-                maxLines = 4
+                maxLines = 4,
+                enabled = !isSaving,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFF4A0E24),
+                    focusedLabelColor = Color(0xFF4A0E24)
+                )
             )
 
             Spacer(Modifier.height(20.dp))
@@ -120,62 +164,63 @@ fun EditKaryaPage(
             Button(
                 onClick = {
                     if (nama.isBlank() || deskripsi.isBlank()) {
-                        pesan = "⚠ Nama & deskripsi tidak boleh kosong"
+                        Toast.makeText(context, "Nama dan deskripsi tidak boleh kosong", Toast.LENGTH_SHORT).show()
                         return@Button
                     }
 
-                    // 🔥 Kirim update ke server
+                    isSaving = true
+
                     val body = HashMap<String, RequestBody>()
                     body["nama"] = nama.toRequestBody("text/plain".toMediaTypeOrNull())
                     body["deskripsi"] = deskripsi.toRequestBody("text/plain".toMediaTypeOrNull())
 
-                    RetrofitClient.instance.updateKarya(karyaId, body)
+                    RetrofitClient.instance.updateKarya("Bearer $token", karyaId, body)
                         .enqueue(object : Callback<SimpleResponse> {
                             override fun onResponse(
                                 call: Call<SimpleResponse>,
                                 response: Response<SimpleResponse>
                             ) {
+                                isSaving = false
                                 if (response.isSuccessful && response.body()?.status == true) {
-                                    pesan = "Berhasil diperbarui!"
-
-                                    navController.popBackStack() // kembali
+                                    Toast.makeText(context, "Karya berhasil diperbarui!", Toast.LENGTH_SHORT).show()
+                                    navController.popBackStack()
                                 } else {
-                                    pesan = "Gagal update"
+                                    Toast.makeText(context, "Gagal memperbarui karya", Toast.LENGTH_SHORT).show()
                                 }
                             }
 
-                            override fun onFailure(
-                                call: Call<SimpleResponse>,
-                                t: Throwable
-                            ) {
-                                pesan = "Error koneksi"
+                            override fun onFailure(call: Call<SimpleResponse>, t: Throwable) {
+                                isSaving = false
+                                Toast.makeText(context, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
                             }
                         })
                 },
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4A0E24))
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4A0E24)),
+                enabled = !isSaving
             ) {
+                if (isSaving) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(Modifier.width(8.dp))
+                }
                 Text("Simpan Perubahan", color = Color.White)
             }
 
             Spacer(Modifier.height(12.dp))
 
-            // kalo dia batal ga jadi edit
             OutlinedButton(
-                onClick = {
-                    navController.popBackStack()
-                },
+                onClick = { navController.popBackStack() },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.outlinedButtonColors(
                     contentColor = Color(0xFF4A0E24)
-                )
+                ),
+                enabled = !isSaving
             ) {
                 Text("Batal")
-            }
-
-            if (pesan.isNotEmpty()) {
-                Spacer(Modifier.height(12.dp))
-                Text(pesan, color = Color(0xFF4A0E24))
             }
         }
     }

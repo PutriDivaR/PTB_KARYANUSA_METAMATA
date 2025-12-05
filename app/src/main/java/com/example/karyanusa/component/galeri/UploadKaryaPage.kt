@@ -1,5 +1,6 @@
 package com.example.karyanusa.component.galeri
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -29,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
+import com.example.karyanusa.component.auth.LoginTokenManager
 import com.example.karyanusa.component.beranda.NotifHelper
 import com.example.karyanusa.component.beranda.NotifikasiRepository
 import com.example.karyanusa.network.ImageHelper
@@ -228,9 +230,11 @@ fun UploadKaryaPage(navController: NavController) {
 
                 Spacer(Modifier.height(20.dp))
 
-                // ----- BUTTON UPLOAD -----
+
+// ----- BUTTON UPLOAD -----
                 Button(
                     onClick = {
+                        // 1. Validasi awal: pastikan ada gambar yang dipilih
                         if (imageUri == null && capturedBitmap == null) {
                             snackbarMessage = "⚠ Foto wajib diisi!"
                             showSnackbar = true
@@ -239,16 +243,38 @@ fun UploadKaryaPage(navController: NavController) {
 
                         isUploading = true
 
-                        val namaRB = namaKarya.toRequestBody("text/plain".toMediaTypeOrNull())
-                        val deskRB = deskripsi.toRequestBody("text/plain".toMediaTypeOrNull())
-
+                        // 2. Buat imagePart TERLEBIH DAHULU dari Uri atau Bitmap
                         val imagePart = when {
                             imageUri != null -> ImageHelper.uriToMultipart(context, imageUri!!)
                             capturedBitmap != null -> ImageHelper.bitmapToMultipart(context, capturedBitmap!!)
                             else -> null
                         }
 
+                        // 3. SEKARANG, periksa apakah konversi gambar ke imagePart berhasil
+                        if (imagePart == null) {
+                            snackbarMessage = "Gagal memproses gambar!"
+                            showSnackbar = true
+                            isUploading = false
+                            return@Button
+                        }
+
+                        // 4. Siapkan data lainnya (nama, deskripsi, dan token)
+                        val namaRB = namaKarya.toRequestBody("text/plain".toMediaTypeOrNull())
+                        val deskRB = deskripsi.toRequestBody("text/plain".toMediaTypeOrNull())
+
+                        val tokenManager = LoginTokenManager(context)
+                        val token = tokenManager.getBearerToken()
+
+                        if (token == null) {
+                            snackbarMessage = "Sesi habis, silakan login ulang."
+                            showSnackbar = true
+                            isUploading = false
+                            return@Button
+                        }
+
+                        // 5. Panggil Retrofit dengan SEMUA ARGUMEN YANG BENAR
                         RetrofitClient.instance.uploadKarya(
+                            token,
                             imagePart,
                             namaRB,
                             deskRB
@@ -259,31 +285,26 @@ fun UploadKaryaPage(navController: NavController) {
                             ) {
                                 isUploading = false
 
-                                if (response.isSuccessful && response.body()?.success == true) {
-
-                                    // 🎉 Panggil notifikasi
+                                if (response.isSuccessful && response.body()?.status == true) {
                                     NotifHelper.showUploadSuccessNotification(context)
 
-                                        // ⏱ Dapatkan waktu sekarang
-                                        val time = SimpleDateFormat(
-                                            "dd/MM/yyyy HH:mm",
-                                            Locale.getDefault()
-                                        ).format(Date())
+                                    val time = SimpleDateFormat(
+                                        "dd/MM/yyyy HH:mm",
+                                        Locale.getDefault()
+                                    ).format(Date())
 
-                                        // 1️⃣ Simpan ke Notifikasi Aplikasi
                                     NotifikasiRepository.daftarNotifikasi.add(
                                         NotifikasiData(
-                                            judul = namaKarya,   // ← pakai input user langsung
+                                            judul = namaKarya,
                                             pesan = "Karya berhasil diupload!",
                                             waktu = time
                                         )
                                     )
 
-                                        // 3️⃣ Snackbar / navigasi balik
-                                        snackbarMessage = response.body()?.message ?: "Berhasil diunggah!"
-                                        showSnackbar = true
-                                        navController.popBackStack()
-                                 } else {
+                                    snackbarMessage = response.body()?.message ?: "Berhasil diunggah!"
+                                    showSnackbar = true
+                                    navController.popBackStack()
+                                } else {
                                     snackbarMessage = "Server error: ${response.code()}"
                                     showSnackbar = true
                                 }
@@ -296,6 +317,7 @@ fun UploadKaryaPage(navController: NavController) {
                             }
                         })
                     },
+
                     enabled = !isUploading,
                     modifier = Modifier
                         .fillMaxWidth()

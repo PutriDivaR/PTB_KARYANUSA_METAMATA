@@ -1,12 +1,13 @@
 package com.example.karyanusa.component.galeri
 
+import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -17,36 +18,69 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.rememberAsyncImagePainter
 import com.example.karyanusa.network.KaryaData
+import com.example.karyanusa.network.RetrofitClient
+import com.example.karyanusa.network.ViewResponse
+import kotlinx.coroutines.delay
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
 
 @Composable
 fun DetailKaryaDialog(
     karya: KaryaData,
     onDismiss: () -> Unit
 ) {
+    var viewCounted by remember { mutableStateOf(false) }
+
+    // 🔥 TIMER 5 DETIK untuk increment view
+    LaunchedEffect(karya.galeri_id) {
+        Log.d("DetailKarya", "Timer dimulai untuk karya ID: ${karya.galeri_id}")
+        delay(5000L) // 5 detik
+
+        if (!viewCounted) {
+            Log.d("DetailKarya", "5 detik berlalu, memanggil API increment view...")
+
+            RetrofitClient.instance.incrementView(karya.galeri_id)
+                .enqueue(object : Callback<ViewResponse> {
+                    override fun onResponse(
+                        call: Call<ViewResponse>,
+                        response: Response<ViewResponse>
+                    ) {
+                        if (response.isSuccessful) {
+                            Log.d("DetailKarya", "✅ View berhasil ditambahkan! Total: ${response.body()?.views}")
+                            viewCounted = true
+                        } else {
+                            Log.e("DetailKarya", "❌ Response tidak sukses: ${response.code()}")
+                        }
+                    }
+
+                    override fun onFailure(call: Call<ViewResponse>, t: Throwable) {
+                        Log.e("DetailKarya", "❌ API Error: ${t.message}")
+                    }
+                })
+        }
+    }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black.copy(alpha = 0.4f))
-            .clickable { onDismiss() },       // klik luar nutup
+            .clickable { onDismiss() },
         contentAlignment = Alignment.Center
     ) {
-
         Card(
             shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(containerColor = Color.White),
             modifier = Modifier
                 .fillMaxWidth(0.9f)
                 .wrapContentHeight()
+                .clickable { } // Prevent click through
         ) {
             Column(
                 modifier = Modifier.padding(18.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-
-                // =======================
-                //  GAMBAR
-                // =======================
+                // GAMBAR
                 Image(
                     painter = rememberAsyncImagePainter(
                         model = "http://10.0.2.2:8000/storage/${karya.gambar}"
@@ -60,10 +94,7 @@ fun DetailKaryaDialog(
 
                 Spacer(Modifier.height(16.dp))
 
-
-                // =======================
-                //  JUDUL
-                // =======================
+                // JUDUL
                 Text(
                     text = karya.judul,
                     fontWeight = FontWeight.Bold,
@@ -74,10 +105,7 @@ fun DetailKaryaDialog(
 
                 Spacer(Modifier.height(8.dp))
 
-
-                // =======================
-                //  DESKRIPSI
-                // =======================
+                // DESKRIPSI
                 Text(
                     text = karya.caption,
                     color = Color(0xFF5C5C5C),
@@ -89,10 +117,7 @@ fun DetailKaryaDialog(
 
                 Spacer(Modifier.height(16.dp))
 
-
-                // =======================
-                //  UPLOADER
-                // =======================
+                // UPLOADER
                 Text(
                     text = "Diupload oleh ${karya.uploader_name}",
                     color = Color(0xFF7A4E5A),
@@ -107,24 +132,17 @@ fun DetailKaryaDialog(
 
                 Spacer(Modifier.height(8.dp))
 
-
-                // =======================
-                //  TANGGAL UPLOAD (opsional)
-                // =======================
+                // TANGGAL UPLOAD
                 if (karya.tanggal_upload != null) {
                     Text(
                         text = "Tanggal: ${karya.tanggal_upload}",
                         color = Color(0xFF8C5F6E),
                         fontSize = 12.sp
                     )
-
                     Spacer(Modifier.height(12.dp))
                 }
 
-
-                // =======================
-                //  TOMBOL TUTUP
-                // =======================
+                // TOMBOL TUTUP
                 Button(
                     onClick = onDismiss,
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4A0E24)),
