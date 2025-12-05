@@ -486,7 +486,7 @@ fun QuestionCard(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "@${question.user?.email ?: "user"} · ${formatTanggal(question.tanggal)}",
+                            text = "@${question.user?.username ?: "user"} · ${formatTanggal(question.tanggal)}",
                             color = Color.Gray,
                             fontSize = 12.sp
                         )

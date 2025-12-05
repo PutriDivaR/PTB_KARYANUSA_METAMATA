@@ -389,7 +389,7 @@ fun ForumDetailPage(
                                     color = Color(0xFF4A0E24)
                                 )
                                 Text(
-                                    "${data.user?.email ?: "user"} • ${formatTanggal(data.tanggal)}",
+                                    "${data.user?.username ?: "user"} • ${formatTanggal(data.tanggal)}",
                                     color = Color.Gray,
                                     fontSize = 13.sp
                                 )
@@ -579,7 +579,7 @@ fun ForumDetailPage(
                                         color = Color(0xFF4A0E24)
                                     )
                                     Text(
-                                        "${reply.user?.email ?: "user"} • ${formatTanggal(reply.tanggal)}",
+                                        "${reply.user?.username ?: "user"} • ${formatTanggal(reply.tanggal)}",
                                         color = Color.Gray,
                                         fontSize = 12.sp
                                     )

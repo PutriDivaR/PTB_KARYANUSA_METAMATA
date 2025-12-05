@@ -1,6 +1,5 @@
 package com.example.karyanusa.component.galeri
 
-import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult

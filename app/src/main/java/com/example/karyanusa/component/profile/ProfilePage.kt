@@ -18,7 +18,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.MenuBook
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.AddAPhoto
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -292,6 +297,7 @@ fun ProfilePage(navController: NavController) {
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // header
             Card(
                 Modifier.fillMaxWidth().padding(16.dp),
                 shape = RoundedCornerShape(bottomStart = 20.dp, bottomEnd = 20.dp),
@@ -446,7 +452,6 @@ fun ProfilePage(navController: NavController) {
                 fontSize = 18.sp,
                 modifier = Modifier.padding(horizontal = 16.dp)
             )
-
             Spacer(Modifier.height(12.dp))
 
             // Loading kursus
@@ -509,8 +514,6 @@ fun ProfilePage(navController: NavController) {
             Spacer(Modifier.height(20.dp))
         }
     }
-
-    // Dialog foto profil
     if (showPhotoOptions) {
         AlertDialog(
             onDismissRequest = { showPhotoOptions = false },
@@ -544,7 +547,7 @@ fun ProfilePage(navController: NavController) {
 
 // ============================================================
 // COMPONENT KECIL
-// ============================================================
+// =============================================
 @Composable
 fun ProfileRow(label: String, value: String) {
     Row(

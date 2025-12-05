@@ -16,11 +16,12 @@ import retrofit2.http.PUT
 import retrofit2.http.Part
 import retrofit2.http.PartMap
 import retrofit2.http.Path
+import retrofit2.http.Query
 
 
 // AUTH
 data class LoginRequest(
-    val email: String,
+    val username: String,
     val password: String
 )
 
@@ -34,7 +35,7 @@ data class LoginResponse(
 
 data class RegisterRequest(
     val nama: String,
-    val email: String,
+    val username: String,
     val password: String
 )
 
@@ -47,7 +48,7 @@ data class RegisterResponse(
 data class UserData(
     val user_id: Int,
     val nama: String,
-    val email: String
+    val username: String
 )
 
 
@@ -171,6 +172,11 @@ interface ApiService {
     @GET("api/courses")
     fun getCourses(): Call<List<Kursus>>
 
+    @GET("api/courses/{id}")
+    fun getKursusById(
+        @Path("id") id: Int
+    ): Call<Kursus>
+
     @GET("api/materi/{kursus_id}")
     fun getMateriByKursus(
         @Path("kursus_id") kursusId: Int
@@ -221,7 +227,7 @@ interface ApiService {
     @POST("api/enroll")
     fun enrollCourse(
         @Header("Authorization") token: String,
-        @Body body: Map<String, Int>
+        @Body body: Map<String, String>
     ): Call<ResponseBody>
 
     @GET("api/check-enrollment/{kursus_id}")
@@ -243,6 +249,7 @@ interface ApiService {
         @Header("Authorization") token: String
     ): Call<List<EnrollmentData>>
 
+
     @POST("api/materi/complete")
     fun tandaiMateriSelesai(
         @Header("Authorization") token: String,
@@ -255,6 +262,7 @@ interface ApiService {
         @Path("enrollmentId") enrollmentId: Int,
         @Path("materiId") materiId: Int
     ): Call<MateriCompletedResponse>
+
 
     // Ambil semua pertanyaan forum
     @GET("api/pertanyaan")
@@ -304,3 +312,4 @@ interface ApiService {
 
 
 }
+

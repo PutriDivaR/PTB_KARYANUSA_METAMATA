@@ -1,0 +1,41 @@
+package com.example.karyanusa.fcm
+
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.Context
+import android.os.Build
+import androidx.core.app.NotificationCompat
+import com.example.karyanusa.R
+
+object NotificationHelper {
+    private const val CHANNEL_ID = "karyanusa_channel_01"
+    private const val CHANNEL_NAME = "KaryaNusa Notifications"
+
+    fun createNotificationChannel(context: Context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val chan = NotificationChannel(
+                CHANNEL_ID,
+                CHANNEL_NAME,
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Channel for KaryaNusa app notifications"
+            }
+            val manager = context.getSystemService(NotificationManager::class.java)
+            manager.createNotificationChannel(chan)
+        }
+    }
+
+    fun showNotification(context: Context, id: Int, title: String, body: String) {
+        createNotificationChannel(context)
+
+        val builder = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.karyanusalogo)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.notify(id, builder.build())
+    }
+}

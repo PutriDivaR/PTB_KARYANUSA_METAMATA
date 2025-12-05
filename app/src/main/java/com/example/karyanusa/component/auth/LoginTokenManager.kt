@@ -33,11 +33,14 @@ class LoginTokenManager(context: Context) {
         val id = prefs.getInt(KEY_USER_ID, -1)
         return if (id == -1) null else id
     }
+<<<<<<< HEAD
 
     fun getUserIdString(): String? {
         val id = prefs.getInt(KEY_USER_ID, -1)
         return if (id == -1) null else id.toString()
     }
+=======
+>>>>>>> da4156c29371295087b0f88c09cb5343a70a92d3
 
     fun getUserName(): String? = prefs.getString(KEY_USER_NAME, null)
 

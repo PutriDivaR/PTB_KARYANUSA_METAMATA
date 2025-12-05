@@ -1,6 +1,10 @@
 package com.example.karyanusa
 
+<<<<<<< HEAD
 import android.os.Build
+=======
+
+>>>>>>> da4156c29371295087b0f88c09cb5343a70a92d3
 import android.os.Bundle
 import android.Manifest
 import androidx.activity.ComponentActivity
@@ -41,6 +45,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
+<<<<<<< HEAD
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             ActivityCompat.requestPermissions(
                 this,
@@ -49,6 +54,8 @@ class MainActivity : ComponentActivity() {
             )
         }
 
+=======
+>>>>>>> da4156c29371295087b0f88c09cb5343a70a92d3
 
         setContent {
             KaryaNusaTheme {
@@ -82,7 +89,8 @@ class MainActivity : ComponentActivity() {
                         NotifikasiPage(navController)
                     }
 
-                    composable("kursus",
+                    composable(
+                        "kursus",
                         enterTransition = { fadeIn(animationSpec = tween(400)) },
                         exitTransition = { fadeOut(animationSpec = tween(300)) }
                     ) {
@@ -160,7 +168,8 @@ class MainActivity : ComponentActivity() {
                         ForumAddPage(navController)
                     }
 
-                    composable("forumDetail/{id}",
+                    composable(
+                        "forumDetail/{id}",
                         enterTransition = { fadeIn(animationSpec = tween(400)) },
                         exitTransition = { fadeOut(animationSpec = tween(300)) }
                     ) { backStackEntry ->
@@ -192,7 +201,10 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
 }
+
+
 
 
 

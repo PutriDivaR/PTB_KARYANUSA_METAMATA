@@ -1,5 +1,6 @@
 package com.example.karyanusa.component.auth
 
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
@@ -64,7 +65,7 @@ fun LoginScreen(navController: NavController) {
             OutlinedTextField(
                 value = username,
                 onValueChange = { username = it },
-                label = { Text("Email") },
+                label = { Text("Username") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
@@ -97,7 +98,7 @@ fun LoginScreen(navController: NavController) {
 
             Button(
                 onClick = {
-                    val loginRequest = LoginRequest(email = username, password = password)
+                    val loginRequest = LoginRequest(username = username, password = password)
 
                     RetrofitClient.instance.loginUser(loginRequest).enqueue(object : Callback<LoginResponse> {
                         override fun onResponse(
@@ -109,10 +110,15 @@ fun LoginScreen(navController: NavController) {
                                 val tokenManager = LoginTokenManager(context)
 
                                 tokenManager.saveToken(
-                                    token = body.token ?: "",
-                                    userId = body.user_id ?: "",
-                                    userName = body.nama ?: ""
+                                    token = body.token,
+                                    userId = body.user_id,
+                                    userName = body.nama
                                 )
+
+                                Log.d("LOGIN_DEBUG", "Saved user_id = ${body.user_id}")
+                                Log.d("LOGIN_DEBUG", "Saved token = ${body.token}")
+                                Log.d("LOGIN_DEBUG", "Saved username = ${body.nama}")
+
 
                                 Toast.makeText(context, "Login Berhasil!", Toast.LENGTH_SHORT).show()
                                 navController.navigate("beranda")
