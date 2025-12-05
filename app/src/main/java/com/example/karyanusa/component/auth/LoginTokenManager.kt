@@ -15,14 +15,12 @@ class LoginTokenManager(context: Context) {
     }
 
     fun saveToken(token: String?, userId: String?, userName: String?) {
-        prefs.edit().apply {
-            putString(KEY_TOKEN, token)
-            putString(KEY_USER_ID, userId)
-            putString(KEY_USER_NAME, userName)
-            apply()
-        }
+        prefs.edit()
+            .putString(KEY_TOKEN, token)
+            .putInt(KEY_USER_ID, userId?.toIntOrNull() ?: -1)
+            .putString(KEY_USER_NAME, userName)
+            .apply()
     }
-
 
     fun getToken(): String? = prefs.getString(KEY_TOKEN, null)
 
@@ -31,7 +29,10 @@ class LoginTokenManager(context: Context) {
         return if (token != null) "Bearer $token" else null
     }
 
-    fun getUserId(): String? = prefs.getString(KEY_USER_ID, null)
+    fun getUserId(): Int? {
+        val id = prefs.getInt(KEY_USER_ID, -1)
+        return if (id == -1) null else id
+    }
 
     fun getUserName(): String? = prefs.getString(KEY_USER_NAME, null)
 

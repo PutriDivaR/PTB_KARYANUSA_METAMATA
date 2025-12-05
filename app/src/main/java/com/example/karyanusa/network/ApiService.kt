@@ -7,6 +7,7 @@ import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.POST
 import retrofit2.http.Path
+import retrofit2.http.Query
 
 
 // AUTH
@@ -81,12 +82,22 @@ data class EnrollmentData(
     val status: String
 )
 
-
-
-
 data class MateriCompletedResponse(
     val completed: Boolean
 )
+
+data class Notifikasi(
+    val notif_id: Int,
+    val from_user: Int,
+    val to_user: Int,
+    val type: String,
+    val title: String,
+    val message: String,
+    val related_id: Int?,
+    val is_read: Boolean,
+    val created_at: String
+)
+
 
 
 // API SERVICE
@@ -120,7 +131,7 @@ interface ApiService {
     @POST("api/enroll")
     fun enrollCourse(
         @Header("Authorization") token: String,
-        @Body body: Map<String, Int>
+        @Body body: Map<String, String>
     ): Call<ResponseBody>
 
     @GET("api/check-enrollment/{kursus_id}")
@@ -155,4 +166,30 @@ interface ApiService {
         @Path("enrollmentId") enrollmentId: Int,
         @Path("materiId") materiId: Int
     ): Call<MateriCompletedResponse>
+
+    // NOTIFIKASI
+    @POST("api/notifikasi/send")
+    fun sendNotification(
+        @Header("Authorization") token: String,
+        @Body body: Map<String, @JvmSuppressWildcards Any>
+    ): Call<ResponseBody>
+
+
+    @GET("api/notifikasi")
+    fun getNotifications(
+        @Header("Authorization") token: String
+    ): Call<List<Notifikasi>>
+
+    @GET("api/users/search")
+    fun searchUser(
+        @Query("username") username: String
+    ): Call<List<UserData>>
+
+    @GET("api/users")
+    fun getAllUsers(
+        @Header("Authorization") token: String
+    ): Call<List<UserData>>
+
+
+
 }

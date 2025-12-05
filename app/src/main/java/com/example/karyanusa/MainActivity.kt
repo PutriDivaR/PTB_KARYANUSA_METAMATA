@@ -1,5 +1,6 @@
 package com.example.karyanusa
 
+
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -31,11 +32,13 @@ import com.example.karyanusa.component.profile.ProfilePage
 import com.example.karyanusa.ui.theme.KaryaNusaTheme
 import com.example.karyanusa.component.galeri.UploadKaryaPage
 
+
 @OptIn(ExperimentalAnimationApi::class)
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
+
 
         setContent {
             KaryaNusaTheme {
@@ -69,7 +72,8 @@ class MainActivity : ComponentActivity() {
                         NotifikasiPage(navController)
                     }
 
-                    composable("kursus",
+                    composable(
+                        "kursus",
                         enterTransition = { fadeIn(animationSpec = tween(400)) },
                         exitTransition = { fadeOut(animationSpec = tween(300)) }
                     ) {
@@ -147,7 +151,8 @@ class MainActivity : ComponentActivity() {
                         ForumAddPage(navController)
                     }
 
-                    composable("forumDetail/{id}",
+                    composable(
+                        "forumDetail/{id}",
                         enterTransition = { fadeIn(animationSpec = tween(400)) },
                         exitTransition = { fadeOut(animationSpec = tween(300)) }
                     ) { backStackEntry ->
@@ -179,7 +184,10 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
 }
+
+
 
 
 
