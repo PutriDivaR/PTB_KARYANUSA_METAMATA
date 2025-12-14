@@ -1,7 +1,7 @@
 package com.example.karyanusa.component.galeri
 
+import android.widget.Toast
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -9,23 +9,74 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.karyanusa.component.auth.LoginTokenManager
+import com.example.karyanusa.network.KaryaData
+import com.example.karyanusa.network.KaryaResponse
+import com.example.karyanusa.network.RetrofitClient
+import com.example.karyanusa.network.SimpleResponse
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
 
 @Composable
 fun GaleriPribadiPage(navController: NavController) {
-    val karyaList = remember { KaryaRepository.daftarKarya }
+    val context = LocalContext.current
+    val tokenManager = LoginTokenManager(context)
+    val token = tokenManager.getToken()
+
+    var karyaList by remember { mutableStateOf<List<KaryaData>>(emptyList()) }
+    var loading by remember { mutableStateOf(true) }
     var showDialog by remember { mutableStateOf(false) }
-    var karyaDihapus by remember { mutableStateOf<Karya?>(null) }
+    var karyaDihapus by remember { mutableStateOf<KaryaData?>(null) }
+    var isDeleting by remember { mutableStateOf(false) }
 
     val pinkTua = Color(0xFF4A0E24)
     val background = Color(0xFFFFF5F7)
+
+    // Cek token dulu
+    if (token == null) {
+        LaunchedEffect(Unit) {
+            Toast.makeText(context, "Harap login terlebih dahulu", Toast.LENGTH_SHORT).show()
+            navController.navigate("login") {
+                popUpTo(0) { inclusive = true }
+            }
+        }
+        return
+    }
+
+    // Load data karya pribadi
+    LaunchedEffect(Unit) {
+        RetrofitClient.instance.getMyKarya("Bearer $token")
+            .enqueue(object : Callback<KaryaResponse> {
+                override fun onResponse(
+                    call: Call<KaryaResponse>,
+                    response: Response<KaryaResponse>
+                ) {
+                    if (response.isSuccessful && response.body()?.status == true) {
+                        karyaList = response.body()?.data ?: emptyList()
+                    } else {
+                        Toast.makeText(context, "Gagal memuat galeri", Toast.LENGTH_SHORT).show()
+                    }
+                    loading = false
+                }
+
+                override fun onFailure(call: Call<KaryaResponse>, t: Throwable) {
+                    Toast.makeText(context, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+                    loading = false
+                }
+            })
+    }
 
     Column(
         modifier = Modifier
@@ -33,7 +84,7 @@ fun GaleriPribadiPage(navController: NavController) {
             .background(background)
             .padding(8.dp)
     ) {
-        // 🔼 Tombol Upload Karya Baru
+        // Tombol Upload
         Button(
             onClick = { navController.navigate("upload") },
             colors = ButtonDefaults.buttonColors(containerColor = pinkTua),
@@ -46,85 +97,112 @@ fun GaleriPribadiPage(navController: NavController) {
             Text("Upload Karya Baru", color = Color.White)
         }
 
-        Spacer(Modifier.height(8.dp))
+        // Loading
+        if (loading) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = pinkTua)
+            }
+            return@Column
+        }
 
-        // 📸 Daftar Karya Pribadi
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(8.dp)
-        ) {
-            if (karyaList.isEmpty()) {
-                item {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 80.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.AddAPhoto,
-                            contentDescription = null,
-                            tint = pinkTua.copy(alpha = 0.5f),
-                            modifier = Modifier.size(60.dp)
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            "Belum ada karya yang diunggah",
-                            color = Color.Gray,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
+        // Kosong
+        if (karyaList.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        "Belum ada karya Anda",
+                        color = Color.Gray,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Mulai unggah karya pertama Anda!",
+                        color = Color.Gray,
+                        fontSize = 12.sp
+                    )
                 }
-            } else {
-                items(karyaList) { karya ->
-                    Card(
+            }
+            return@Column
+        }
+
+        // LIST KARYA
+        LazyColumn {
+            items(karyaList) { karya ->
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 6.dp),
+                    elevation = CardDefaults.cardElevation(6.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                ) {
+                    Row(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 6.dp)
-                            .clickable { /* Bisa ditambahkan navigasi detail nanti */ },
-                        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White)
+                            .padding(12.dp)
+                            .fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .padding(12.dp)
-                                .fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = karya.nama,
-                                    fontWeight = FontWeight.Bold,
-                                    color = pinkTua
-                                )
-                                Text(
-                                    text = karya.deskripsi,
-                                    color = Color.Gray
-                                )
-                            }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = karya.judul,
+                                fontWeight = FontWeight.Bold,
+                                color = pinkTua
+                            )
+                            Text(
+                                text = karya.caption,
+                                color = Color.Gray,
+                                fontSize = 13.sp
+                            )
 
-                            // ✏️ Edit
-                            IconButton(onClick = {
-                                navController.navigate("edit/${karya.id}")
-                            }) {
+                            // Tampilan Views
+                            Spacer(Modifier.height(6.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
-                                    imageVector = Icons.Default.Edit,
-                                    contentDescription = "Edit",
-                                    tint = pinkTua
+                                    imageVector = Icons.Default.Visibility,
+                                    contentDescription = "Views",
+                                    tint = Color(0xFF7A4E5A),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    text = "${karya.views} views",
+                                    color = Color(0xFF7A4E5A),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium
                                 )
                             }
+                        }
 
-                            // 🗑️ Hapus
-                            IconButton(onClick = {
+                        // Tombol Edit
+                        IconButton(
+                            onClick = {
+                                navController.navigate("edit/${karya.galeri_id}")
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = "Edit",
+                                tint = pinkTua
+                            )
+                        }
+
+                        // Tombol Hapus
+                        IconButton(
+                            onClick = {
                                 karyaDihapus = karya
                                 showDialog = true
-                            }) {
-                                Icon(
-                                    imageVector = Icons.Default.Delete,
-                                    contentDescription = "Hapus",
-                                    tint = Color.Red
-                                )
                             }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Hapus",
+                                tint = Color.Red
+                            )
                         }
                     }
                 }
@@ -132,24 +210,62 @@ fun GaleriPribadiPage(navController: NavController) {
         }
     }
 
-    // 🩷 Dialog Konfirmasi Hapus
+    // Dialog Konfirmasi Hapus
     if (showDialog && karyaDihapus != null) {
         AlertDialog(
-            onDismissRequest = { showDialog = false },
+            onDismissRequest = { if (!isDeleting) showDialog = false },
             confirmButton = {
                 Button(
                     onClick = {
-                        KaryaRepository.daftarKarya.remove(karyaDihapus)
-                        showDialog = false
-                        karyaDihapus = null
+                        isDeleting = true
+                        RetrofitClient.instance.deleteKarya(
+                            "Bearer $token",
+                            karyaDihapus!!.galeri_id
+                        ).enqueue(object : Callback<SimpleResponse> {
+                            override fun onResponse(
+                                call: Call<SimpleResponse>,
+                                response: Response<SimpleResponse>
+                            ) {
+                                isDeleting = false
+                                if (response.isSuccessful && response.body()?.status == true) {
+                                    Toast.makeText(context, "Karya berhasil dihapus", Toast.LENGTH_SHORT).show()
+                                    karyaList = karyaList.filter {
+                                        it.galeri_id != karyaDihapus!!.galeri_id
+                                    }
+                                } else {
+                                    Toast.makeText(context, "Gagal menghapus karya", Toast.LENGTH_SHORT).show()
+                                }
+                                showDialog = false
+                                karyaDihapus = null
+                            }
+
+                            override fun onFailure(call: Call<SimpleResponse>, t: Throwable) {
+                                isDeleting = false
+                                Toast.makeText(context, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+                                showDialog = false
+                                karyaDihapus = null
+                            }
+                        })
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = pinkTua)
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+                    enabled = !isDeleting
                 ) {
+                    if (isDeleting) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(Modifier.width(8.dp))
+                    }
                     Text("Ya, Hapus", color = Color.White)
                 }
             },
             dismissButton = {
-                OutlinedButton(onClick = { showDialog = false }) {
+                OutlinedButton(
+                    onClick = { showDialog = false },
+                    enabled = !isDeleting
+                ) {
                     Text("Batal", color = Color.Gray)
                 }
             },
@@ -160,7 +276,23 @@ fun GaleriPribadiPage(navController: NavController) {
                     color = pinkTua
                 )
             },
-            text = { Text("Apakah kamu yakin ingin menghapus karya ini?") },
+            text = {
+                Column {
+                    Text("Apakah Anda yakin ingin menghapus karya ini?")
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "\"${karyaDihapus?.judul}\"",
+                        fontWeight = FontWeight.SemiBold,
+                        color = pinkTua
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Tindakan ini tidak dapat dibatalkan.",
+                        fontSize = 12.sp,
+                        color = Color.Red
+                    )
+                }
+            },
             containerColor = Color(0xFFFFE4EC),
             tonalElevation = 4.dp,
             shape = MaterialTheme.shapes.medium

@@ -12,10 +12,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.AddAPhoto
@@ -32,19 +32,22 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import com.example.karyanusa.R
-import com.example.karyanusa.component.forum.ImageUtils
 import com.example.karyanusa.component.auth.LoginTokenManager
+import com.example.karyanusa.component.forum.ImageUtils
 import com.example.karyanusa.network.Kursus
-import com.example.karyanusa.network.EnrollmentData
 import com.example.karyanusa.network.RetrofitClient
+import android.util.Log
+import com.example.karyanusa.network.EnrollmentData
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -53,322 +56,464 @@ import retrofit2.Response
 @Composable
 fun ProfilePage(navController: NavController) {
     val context = LocalContext.current
+    val tokenManager = remember { LoginTokenManager(context) }
 
+    // === STATE ===
+    var isLoading by remember { mutableStateOf(true) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var isUpdating by remember { mutableStateOf(false) }
     var isEditing by remember { mutableStateOf(false) }
-    var nama by remember { mutableStateOf("Putri Diva Riyanti") }
-    var username by remember { mutableStateOf("@putrididip") }
-    var bio by remember { mutableStateOf("Virgo Ni Bossttt") }
 
-    var originalNama by remember { mutableStateOf(nama) }
-    var originalUsername by remember { mutableStateOf(username) }
-    var originalBio by remember { mutableStateOf(bio) }
+    var nama by remember { mutableStateOf("") }
+    var username by remember { mutableStateOf("") }
+    var bio by remember { mutableStateOf("—") }
+
+    var originalNama by remember { mutableStateOf("") }
+    var originalUsername by remember { mutableStateOf("") }
+    var originalBio by remember { mutableStateOf("—") }
 
     var profileImageUri by remember { mutableStateOf<Uri?>(null) }
     var showPhotoOptions by remember { mutableStateOf(false) }
     var showConfirmDialog by remember { mutableStateOf(false) }
     var cameraImageUri by remember { mutableStateOf<Uri?>(null) }
 
-    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
-        if (success && cameraImageUri != null) profileImageUri = cameraImageUri
-    }
+    // 🔥 STATE UNTUK KURSUS USER
+    var userCourses by remember { mutableStateOf<List<Kursus>>(emptyList()) }
+    var isLoadingCourses by remember { mutableStateOf(false) }
 
-    val cameraPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) {
-            val uri = ImageUtils.createImageUri(context)
-            if (uri != null) {
-                cameraImageUri = uri
-                cameraLauncher.launch(uri)
-            } else {
-                Toast.makeText(context, "Gagal membuka kamera", Toast.LENGTH_SHORT).show()
-            }
+    // ============================================================
+    // 🔥 LOAD PROFILE
+    // ============================================================
+    fun loadProfile() {
+        isLoading = true
+        errorMessage = null
+
+        try {
+            val token = tokenManager.getToken()
+            val userId = tokenManager.getUserId()
+            val userName = tokenManager.getUserName()
+
+            Log.d("ProfilePage", "=== DEBUG PROFILE ===")
+            Log.d("ProfilePage", "Token: ${token ?: "NULL"}")
+            Log.d("ProfilePage", "UserId: ${userId ?: "NULL"}")
+            Log.d("ProfilePage", "UserName: ${userName ?: "NULL"}")
+
+            // 🔥 NAMA DIAMBIL DARI LOGIN TOKEN (fallback ke default)
+            nama = userName?.takeIf { it.isNotBlank() } ?: "Pengguna"
+
+            // 🔥 Username auto-generate dari nama
+            username = "@${nama.lowercase().replace(" ", "_")}"
+
+            originalNama = nama
+            originalUsername = username
+
+            Log.d("ProfilePage", "✅ Profile loaded: $nama")
+            isLoading = false
+
+        } catch (e: Exception) {
+            Log.e("ProfilePage", "❌ Error loading profile", e)
+            errorMessage = "Gagal memuat profil: ${e.message}"
+            isLoading = false
         }
     }
 
-    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) profileImageUri = uri
-    }
+    // ============================================================
+    // 🔥 LOAD KURSUS USER (ambil enrollments, lalu map ke kursus)
+    // ============================================================
+    fun loadUserCourses() {
+        val token = tokenManager.getToken()
 
-    // enrolled kursus (yang dah diikuti)
-    var enrolledKursus by remember { mutableStateOf<List<Kursus>>(emptyList()) }
-    var isLoadingEnrollments by remember { mutableStateOf(true) }
-
-    // ambil token
-    val token = LoginTokenManager(context).getToken()
-
-    // Load enroll
-    LaunchedEffect(Unit) {
-        if (token == null) {
-            enrolledKursus = emptyList()
-            isLoadingEnrollments = false
-            return@LaunchedEffect
+        if (token.isNullOrEmpty()) {
+            Log.d("ProfilePage", "Token kosong, skip load courses")
+            return
         }
 
-        // Get enroll
-        RetrofitClient.instance.getEnrollments("Bearer $token")
-            .enqueue(object : Callback<List<EnrollmentData>> {
-                override fun onResponse(
-                    call: Call<List<EnrollmentData>>,
-                    response: Response<List<EnrollmentData>>
-                ) {
-                    if (!response.isSuccessful) {
-                        enrolledKursus = emptyList()
-                        isLoadingEnrollments = false
-                        return
-                    }
+        isLoadingCourses = true
+        Log.d("ProfilePage", "🔄 Loading user enrollments...")
 
-                    val enrollments = response.body() ?: emptyList()
-                    if (enrollments.isEmpty()) {
-                        enrolledKursus = emptyList()
-                        isLoadingEnrollments = false
-                        return
-                    }
+        // Step 1: Get all courses
+        RetrofitClient.instance.getCourses()
+            .enqueue(object : Callback<List<Kursus>> {
+                override fun onResponse(call: Call<List<Kursus>>, response: Response<List<Kursus>>) {
+                    val allCourses = response.body() ?: emptyList()
 
-                    val temp = mutableListOf<Kursus>()
-                    var done = 0
-                    enrollments.forEach { enroll ->
-                        RetrofitClient.instance.getKursusById(enroll.kursus_id)
-                            .enqueue(object : Callback<Kursus> {
-                                override fun onResponse(call: Call<Kursus>, res: Response<Kursus>) {
-                                    res.body()?.let { temp.add(it) }
-                                    done++
-                                    if (done == enrollments.size) {
-                                        enrolledKursus = temp
-                                        isLoadingEnrollments = false
-                                    }
+                    // Step 2: Get user enrollments
+                    RetrofitClient.instance.getEnrollments("Bearer $token")
+                        .enqueue(object : Callback<List<EnrollmentData>> {
+                            override fun onResponse(call: Call<List<EnrollmentData>>, response: Response<List<EnrollmentData>>) {
+                                isLoadingCourses = false
+                                if (response.isSuccessful) {
+                                    val enrollments = response.body() ?: emptyList()
+                                    val enrolledCourseIds = enrollments.map { it.kursus_id }
+
+                                    // Filter courses yang user sudah enroll
+                                    userCourses = allCourses.filter { it.kursus_id in enrolledCourseIds }
+
+                                    Log.d("ProfilePage", "✅ Loaded ${userCourses.size} enrolled courses")
+                                } else {
+                                    Log.e("ProfilePage", "❌ Failed to get enrollments: ${response.code()}")
                                 }
+                            }
 
-                                override fun onFailure(call: Call<Kursus>, t: Throwable) {
-                                    done++
-                                    if (done == enrollments.size) {
-                                        enrolledKursus = temp
-                                        isLoadingEnrollments = false
-                                    }
-                                }
-                            })
-                    }
+                            override fun onFailure(call: Call<List<EnrollmentData>>, t: Throwable) {
+                                isLoadingCourses = false
+                                Log.e("ProfilePage", "❌ Error loading enrollments", t)
+                            }
+                        })
                 }
 
-                override fun onFailure(call: Call<List<EnrollmentData>>, t: Throwable) {
-                    enrolledKursus = emptyList()
-                    isLoadingEnrollments = false
+                override fun onFailure(call: Call<List<Kursus>>, t: Throwable) {
+                    isLoadingCourses = false
+                    Log.e("ProfilePage", "❌ Error loading courses", t)
                 }
             })
     }
 
+    // ============================================================
+    // 🔥 UPDATE PROFILE
+    // ============================================================
+    fun updateProfile() {
+        if (nama.isBlank()) {
+            Toast.makeText(context, "Nama tidak boleh kosong", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // Tidak ada perubahan
+        if (nama == originalNama && bio == originalBio) {
+            Toast.makeText(context, "Tidak ada perubahan", Toast.LENGTH_SHORT).show()
+            isEditing = false
+            return
+        }
+
+        isUpdating = true
+
+        try {
+            val token = tokenManager.getToken()
+            val userId = tokenManager.getUserId()
+
+            // 🔥 Update lokal (karena backendmu belum support update profil)
+            if (!token.isNullOrEmpty() && userId != null) {
+                tokenManager.saveToken(
+                    token = token,
+                    userId = userId.toString(),
+                    userName = nama
+                )
+            }
+
+            originalNama = nama
+            originalBio = bio
+            originalUsername = "@${nama.lowercase().replace(" ", "_")}"
+            username = originalUsername
+
+            Toast.makeText(context, "✅ Profil diperbarui!", Toast.LENGTH_SHORT).show()
+
+        } catch (e: Exception) {
+            Log.e("ProfilePage", "❌ Error updating profile", e)
+            Toast.makeText(context, "Gagal memperbarui profil", Toast.LENGTH_SHORT).show()
+        } finally {
+            isUpdating = false
+            isEditing = false
+        }
+    }
+
+    // Load pertama kali
+    LaunchedEffect(Unit) {
+        loadProfile()
+        loadUserCourses() // 🔥 Load kursus user
+    }
+
+    // ============================================================
+    // KAMERA & GALERI
+    // ============================================================
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+        if (success && cameraImageUri != null) profileImageUri = cameraImageUri
+    }
+
+    val cameraPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) {
+            ImageUtils.createImageUri(context)?.let { safeUri ->
+                cameraImageUri = safeUri
+                cameraLauncher.launch(safeUri)
+            } ?: Toast.makeText(context, "Gagal membuka kamera", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    val galleryPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) profileImageUri = uri
+    }
+
+    // ============================================================
+    // UI
+    // ============================================================
     Scaffold(
         bottomBar = {
             BottomAppBar(containerColor = Color(0xFFFFE4EC)) {
                 Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp),
+                    Modifier.fillMaxWidth().padding(horizontal = 20.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     IconButton(onClick = { navController.navigate("beranda") }) {
-                        Icon(Icons.Default.Home, contentDescription = "Home", tint = Color(0xFF4A0E24))
+                        Icon(Icons.Default.Home, null, tint = Color(0xFF4A0E24))
                     }
                     IconButton(onClick = { navController.navigate("forum") }) {
-                        Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "Forum", tint = Color(0xFF4A0E24))
+                        Icon(Icons.AutoMirrored.Filled.Chat, null, tint = Color(0xFF4A0E24))
                     }
                     IconButton(onClick = { navController.navigate("kursus") }) {
-                        Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = "Kursus", tint = Color(0xFF4A0E24))
+                        Icon(Icons.AutoMirrored.Filled.MenuBook, null, tint = Color(0xFF4A0E24))
                     }
                     IconButton(onClick = { navController.navigate("galeri") }) {
-                        Icon(Icons.Default.AddAPhoto, contentDescription = "Galeri", tint = Color(0xFF4A0E24))
+                        Icon(Icons.Default.AddAPhoto, null, tint = Color(0xFF4A0E24))
                     }
                     IconButton(onClick = { navController.navigate("profile") }) {
-                        Icon(Icons.Default.Person, contentDescription = "Profile", tint = Color(0xFF4A0E24))
+                        Icon(Icons.Default.Person, null, tint = Color(0xFF4A0E24))
                     }
                 }
             }
         }
     ) { innerPadding ->
+
+        // Loading
+        if (isLoading) {
+            Box(Modifier.fillMaxSize().padding(innerPadding), Alignment.Center) {
+                CircularProgressIndicator(color = Color(0xFF4A0E24))
+            }
+            return@Scaffold
+        }
+
+        // ERROR
+        if (errorMessage != null) {
+            Box(Modifier.fillMaxSize().padding(innerPadding), Alignment.Center) {
+                Text(errorMessage ?: "Error", color = Color.Red)
+            }
+            return@Scaffold
+        }
+
+        // MAIN CONTENT (dengan scroll)
         Column(
-            modifier = Modifier
+            Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .background(Color(0xFFFFF5F7)),
+                .background(Color(0xFFFFF5F7))
+                .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // header
             Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                shape = RoundedCornerShape(topStart = 0.dp, topEnd = 0.dp, bottomStart = 20.dp, bottomEnd = 20.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFE4EC)),
-                elevation = CardDefaults.cardElevation(4.dp)
+                Modifier.fillMaxWidth().padding(16.dp),
+                shape = RoundedCornerShape(bottomStart = 20.dp, bottomEnd = 20.dp),
+                colors = CardDefaults.cardColors(Color(0xFFFFE4EC))
             ) {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
+                    Modifier.fillMaxWidth().padding(20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 8.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Profile",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 20.sp,
-                            color = Color(0xFF4A0E24)
-                        )
-                        if (isEditing) {
-                            IconButton(
-                                onClick = {
-                                    val changed = nama != originalNama || username != originalUsername || bio != originalBio
-                                    if (changed) showConfirmDialog = true else isEditing = false
-                                },
-                                modifier = Modifier.align(Alignment.CenterStart)
-                            ) {
-                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali", tint = Color(0xFF4A0E24))
-                            }
-                        }
-                    }
 
-                    // Profile picture
-                    Box(modifier = Modifier.size(110.dp), contentAlignment = Alignment.BottomEnd) {
+                    // Header
+                    Text("Profile", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Color(0xFF4A0E24))
+
+                    Spacer(Modifier.height(16.dp))
+
+                    // Foto Profil
+                    Box(Modifier.size(110.dp), Alignment.BottomEnd) {
+
                         if (profileImageUri != null) {
                             Image(
-                                painter = rememberAsyncImagePainter(profileImageUri),
-                                contentDescription = "Profile Picture",
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.size(100.dp).clip(CircleShape)
+                                rememberAsyncImagePainter(profileImageUri),
+                                null,
+                                Modifier.size(100.dp).clip(CircleShape),
+                                contentScale = ContentScale.Crop
                             )
                         } else {
                             Box(
-                                modifier = Modifier
-                                    .size(100.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFF4A0E24)),
-                                contentAlignment = Alignment.Center
+                                Modifier.size(100.dp).clip(CircleShape).background(Color(0xFF4A0E24)),
+                                Alignment.Center
                             ) {
-                                Icon(Icons.Default.Person, contentDescription = "Profile Picture", tint = Color.White, modifier = Modifier.size(50.dp))
+                                Text(
+                                    nama.firstOrNull()?.toString()?.uppercase() ?: "?",
+                                    fontSize = 40.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
                             }
                         }
 
                         if (isEditing) {
                             IconButton(
                                 onClick = { showPhotoOptions = true },
-                                modifier = Modifier.size(32.dp).background(Color.White, CircleShape)
+                                Modifier.size(32.dp).background(Color.White, CircleShape)
                             ) {
-                                Icon(Icons.Default.CameraAlt, contentDescription = "Edit Foto", tint = Color(0xFF4A0E24), modifier = Modifier.size(18.dp))
+                                Icon(Icons.Default.CameraAlt, null, tint = Color(0xFF4A0E24))
                             }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(Modifier.height(16.dp))
 
-                    // Info section
-                    Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.Start) {
-                        if (isEditing) {
-                            EditableProfileField("Nama", nama) { nama = it }
-                            EditableProfileField("Username", username) { username = it }
-                            EditableProfileField("Bio", bio) { bio = it }
-                        } else {
-                            ProfileInfoRow("Nama", nama)
-                            ProfileInfoRow("Username", username)
-                            ProfileInfoRow("Bio", bio)
-                        }
-                        ProfileInfoRow("Karya", "4")
-                        ProfileInfoRow("Kursus", enrolledKursus.size.toString())
+                    // Informasi Profil
+                    if (!isEditing) {
+                        ProfileRow("Nama", nama)
+                        ProfileRow("Username", username)
+                        ProfileRow("Bio", bio)
+                    } else {
+                        // Mode Edit - Input Fields
+                        OutlinedTextField(
+                            value = nama,
+                            onValueChange = { nama = it },
+                            label = { Text("Nama") },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFF4A0E24),
+                                focusedLabelColor = Color(0xFF4A0E24)
+                            )
+                        )
+                        Spacer(Modifier.height(12.dp))
+
+                        OutlinedTextField(
+                            value = bio,
+                            onValueChange = { bio = it },
+                            label = { Text("Bio") },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFF4A0E24),
+                                focusedLabelColor = Color(0xFF4A0E24)
+                            )
+                        )
                     }
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(Modifier.height(24.dp))
 
-                    Button(
-                        onClick = {
-                            if (isEditing) {
-                                originalNama = nama
-                                originalUsername = username
-                                originalBio = bio
-                                Toast.makeText(context, "Perubahan disimpan", Toast.LENGTH_SHORT).show()
-                            }
-                            isEditing = !isEditing
-                        },
-                        colors = if (isEditing) ButtonDefaults.buttonColors(containerColor = Color(0xFF4A0E24)) else ButtonDefaults.buttonColors(containerColor = Color.White),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth()
+                    // Tombol Edit/Save dan Cancel
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = if (isEditing) Arrangement.spacedBy(8.dp) else Arrangement.Center
                     ) {
-                        Text(if (isEditing) "Simpan" else "Edit Profile", color = if (isEditing) Color.White else Color(0xFF4A0E24), fontWeight = FontWeight.Bold)
+                        if (isEditing) {
+                            // Tombol Cancel
+                            OutlinedButton(
+                                onClick = {
+                                    // Reset ke nilai original
+                                    nama = originalNama
+                                    bio = originalBio
+                                    isEditing = false
+                                },
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = Color(0xFF4A0E24)
+                                )
+                            ) {
+                                Text("Batal", fontWeight = FontWeight.Bold)
+                            }
+
+                            // Tombol Save
+                            Button(
+                                onClick = { updateProfile() },
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF4A0E24)
+                                ),
+                                enabled = !isUpdating
+                            ) {
+                                if (isUpdating) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(20.dp),
+                                        color = Color.White
+                                    )
+                                } else {
+                                    Text("Simpan", color = Color.White, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        } else {
+                            // Tombol Edit
+                            Button(
+                                onClick = { isEditing = true },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color.White
+                                )
+                            ) {
+                                Text(
+                                    "Edit Profile",
+                                    color = Color(0xFF4A0E24),
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(Modifier.height(16.dp))
 
-            // Kelas Saya header
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text("Kelas Saya", fontWeight = FontWeight.Bold, color = Color(0xFF4A0E24), fontSize = 18.sp)
-                Text("${enrolledKursus.size}", color = Color.Gray, fontSize = 14.sp)
-            }
+            // 🔥 KELAS SAYA (List Kursus)
+            Text(
+                "Kelas Saya",
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF4A0E24),
+                fontSize = 18.sp,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+            Spacer(Modifier.height(12.dp))
 
-            if (isLoadingEnrollments) {
-                Box(modifier = Modifier.fillMaxWidth().height(120.dp), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+            // Loading kursus
+            if (isLoadingCourses) {
+                Box(Modifier.fillMaxWidth().height(200.dp), Alignment.Center) {
+                    CircularProgressIndicator(color = Color(0xFF4A0E24))
                 }
-            } else if (enrolledKursus.isEmpty()) {
-                Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                    Text("Belum ada kelas yang diikuti.", color = Color.Gray)
+            }
+            // List kursus
+            else if (userCourses.isEmpty()) {
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(150.dp)
+                        .padding(16.dp),
+                    Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.MenuBook,
+                            contentDescription = null,
+                            tint = Color.Gray,
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "Belum ada kursus yang diikuti",
+                            color = Color.Gray,
+                            fontSize = 14.sp
+                        )
+                    }
                 }
             } else {
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                // Grid Kursus (2 kolom) - TANPA LazyVerticalGrid
+                Column(
+                    modifier = Modifier.padding(horizontal = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(enrolledKursus) { kursus ->
-                        SmallCourseCard(kursus = kursus) {
-                            navController.navigate("detail/${kursus.kursus_id}")
+                    userCourses.chunked(2).forEach { rowCourses ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            rowCourses.forEach { kursus ->
+                                Box(modifier = Modifier.weight(1f)) {
+                                    CourseCard(kursus = kursus, onClick = {
+                                        navController.navigate("detail/${kursus.kursus_id}")
+                                    })
+                                }
+                            }
+                            // Jika hanya 1 item di row terakhir, tambahkan spacer
+                            if (rowCourses.size == 1) {
+                                Spacer(modifier = Modifier.weight(1f))
+                            }
                         }
                     }
                 }
-
-                Spacer(modifier = Modifier.height(12.dp))
             }
+
+            Spacer(Modifier.height(20.dp))
         }
     }
-
-    // Confirm batal edit
-    if (showConfirmDialog) {
-        AlertDialog(
-            onDismissRequest = { showConfirmDialog = false },
-            title = { Text("Batalkan perubahan?") },
-            text = { Text("Perubahan yang belum disimpan akan hilang.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    nama = originalNama
-                    username = originalUsername
-                    bio = originalBio
-                    isEditing = false
-                    showConfirmDialog = false
-                }) {
-                    Text("Ya, batalkan", color = Color.Red)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showConfirmDialog = false }) {
-                    Text("Tidak", color = Color(0xFF4A0E24))
-                }
-            },
-            containerColor = Color.White
-        )
-    }
-
-    // Photo options dialog
     if (showPhotoOptions) {
         AlertDialog(
             onDismissRequest = { showPhotoOptions = false },
@@ -377,31 +522,20 @@ fun ProfilePage(navController: NavController) {
                 Column {
                     TextButton(onClick = {
                         showPhotoOptions = false
-                        cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                        cameraPermission.launch(Manifest.permission.CAMERA)
                     }) {
-                        Icon(Icons.Default.CameraAlt, contentDescription = null, tint = Color(0xFF4A0E24))
+                        Icon(Icons.Default.CameraAlt, null)
                         Spacer(Modifier.width(8.dp))
-                        Text("Ambil Foto", color = Color(0xFF4A0E24))
+                        Text("Ambil Foto")
                     }
 
                     TextButton(onClick = {
                         showPhotoOptions = false
-                        imagePicker.launch("image/*")
+                        galleryPicker.launch("image/*")
                     }) {
-                        Icon(Icons.Default.Image, contentDescription = null, tint = Color(0xFF4A0E24))
+                        Icon(Icons.Default.Image, null)
                         Spacer(Modifier.width(8.dp))
-                        Text("Pilih dari Galeri", color = Color(0xFF4A0E24))
-                    }
-
-                    if (profileImageUri != null) {
-                        TextButton(onClick = {
-                            profileImageUri = null
-                            showPhotoOptions = false
-                        }) {
-                            Icon(Icons.Default.Delete, contentDescription = null, tint = Color.Red)
-                            Spacer(Modifier.width(8.dp))
-                            Text("Hapus Foto", color = Color.Red)
-                        }
+                        Text("Pilih Dari Galeri")
                     }
                 }
             },
@@ -411,61 +545,13 @@ fun ProfilePage(navController: NavController) {
     }
 }
 
-// card daftar kursus diikuti user
+// ============================================================
+// COMPONENT KECIL
+// =============================================
 @Composable
-fun SmallCourseCard(kursus: Kursus, onClick: () -> Unit) {
-    Card(
-        modifier = Modifier
-            .height(160.dp)
-            .fillMaxWidth()
-            .clickable { onClick() },
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(4.dp)
-    ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            Image(
-                painter = rememberAsyncImagePainter(
-                    ImageRequest.Builder(LocalContext.current)
-                        .data(kursus.thumbnail)
-                        .placeholder(R.drawable.tessampul)
-                        .error(R.drawable.tessampul)
-                        .build()
-                ),
-                contentDescription = kursus.judul,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.BottomCenter)
-                    .background(Color.White.copy(alpha = 0.85f))
-                    .padding(8.dp)
-            ) {
-                Column {
-                    Text(
-                        text = kursus.judul,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF4A0E24),
-                        fontSize = 14.sp,
-                        maxLines = 2
-                    )
-                }
-            }
-        }
-    }
-}
-
-// helper components
-
-@Composable
-fun ProfileInfoRow(label: String, value: String) {
+fun ProfileRow(label: String, value: String) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp),
+        Modifier.fillMaxWidth().padding(vertical = 6.dp),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(label, color = Color(0xFF4A0E24), fontSize = 14.sp, fontWeight = FontWeight.Medium)
@@ -473,33 +559,50 @@ fun ProfileInfoRow(label: String, value: String) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+// 🔥 CARD KURSUS (Simple - hanya thumbnail & judul)
 @Composable
-fun EditableProfileField(label: String, value: String, onValueChange: (String) -> Unit) {
-    Row(
+fun CourseCard(kursus: Kursus, onClick: () -> Unit) {
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 6.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+            .height(140.dp)
+            .clickable { onClick() },
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(4.dp)
     ) {
-        Text(text = label, color = Color(0xFF4A0E24), fontSize = 14.sp, fontWeight = FontWeight.Medium)
-        TextField(
-            value = value,
-            onValueChange = onValueChange,
-            textStyle = TextStyle(color = Color.DarkGray, fontSize = 14.sp),
-            singleLine = true,
-            colors = TextFieldDefaults.colors(
-                focusedContainerColor = Color.Transparent,
-                unfocusedContainerColor = Color.Transparent,
-                disabledContainerColor = Color.Transparent,
-                focusedIndicatorColor = Color.Transparent,
-                unfocusedIndicatorColor = Color.Transparent,
-                cursorColor = Color(0xFF4A0E24),
-                focusedTextColor = Color.DarkGray,
-                unfocusedTextColor = Color.DarkGray
-            ),
-            modifier = Modifier.widthIn(min = 120.dp)
-        )
+        Column {
+            // Thumbnail
+            Image(
+                painter = rememberAsyncImagePainter(
+                    ImageRequest.Builder(LocalContext.current)
+                        .data(kursus.thumbnail)
+                        .crossfade(true)
+                        .error(R.drawable.tessampul)
+                        .build()
+                ),
+                contentDescription = kursus.judul,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(90.dp),
+                contentScale = ContentScale.Crop
+            )
+
+            // Judul Kursus
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp)
+            ) {
+                Text(
+                    kursus.judul,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    color = Color(0xFF4A0E24)
+                )
+            }
+        }
     }
 }

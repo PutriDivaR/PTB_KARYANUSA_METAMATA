@@ -1,6 +1,9 @@
 package com.example.karyanusa.component.galeri
 
-import android.annotation.SuppressLint
+import android.util.Log
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -9,104 +12,113 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
-import com.example.karyanusa.R
+import com.example.karyanusa.network.KaryaData
+import com.example.karyanusa.network.KaryaResponse
+import com.example.karyanusa.network.RetrofitClient
 
-@SuppressLint("MutableCollectionMutableState")
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GaleriPublikPage(navController: NavController) {
+
     var search by remember { mutableStateOf("") }
-    var selectedItem by remember { mutableStateOf<Karya?>(null) }
+    var selectedItem by remember { mutableStateOf<KaryaData?>(null) }
 
-    val karyaList by remember { mutableStateOf(KaryaRepository.daftarKarya) }
+    var karyaList by remember { mutableStateOf<List<KaryaData>>(emptyList()) }
+    var loading by remember { mutableStateOf(true) }
 
+    LaunchedEffect(Unit) {
+        RetrofitClient.instance.getKarya().enqueue(object : Callback<KaryaResponse> {
+            override fun onResponse(
+                call: Call<KaryaResponse>,
+                response: Response<KaryaResponse>
+            ) {
+                if (response.isSuccessful && response.body()?.status == true) {
+                    karyaList = response.body()?.data ?: emptyList()
+                }
+
+                Log.d("API_DATA", response.body().toString())
+                loading = false
+            }
+
+            override fun onFailure(call: Call<KaryaResponse>, t: Throwable) {
+                loading = false
+            }
+        })
+    }
+
+// =====================================================================
+// UI
+// =====================================================================
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFFFFF5F7))
             .padding(12.dp)
     ) {
-        Column {
-            OutlinedTextField(
-                value = search,
-                onValueChange = { search = it },
-                label = { Text("Cari karya...") },
-                modifier = Modifier.fillMaxWidth()
+
+        if (loading) {
+            CircularProgressIndicator(
+                modifier = Modifier.align(Alignment.Center)
             )
+        } else {
 
-            Spacer(Modifier.height(12.dp))
+            Column {
 
-            LazyColumn {
-                items(karyaList.filter { it.nama.contains(search, ignoreCase = true) }) { karya ->
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp)
-                            .clickable { selectedItem = karya },
-                        elevation = CardDefaults.cardElevation(6.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White)
-                    ) {
-                        Column {
-                            // ✅ tampilkan gambar dari kamera atau galeri
-                            if (karya.gambarBitmap != null) {
-                                Image(
-                                    bitmap = karya.gambarBitmap.asImageBitmap(),
-                                    contentDescription = karya.nama,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(180.dp),
-                                    contentScale = ContentScale.Crop
-                                )
-                            } else {
-                                Image(
-                                    painter = rememberAsyncImagePainter(
-                                        model = karya.gambarUri ?: R.drawable.sample_karya
-                                    ),
-                                    contentDescription = karya.nama,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(180.dp),
-                                    contentScale = ContentScale.Crop
-                                )
-                            }
+                OutlinedTextField(
+                    value = search,
+                    onValueChange = { search = it },
+                    label = { Text("Cari karya...") },
+                    modifier = Modifier.fillMaxWidth()
+                )
 
-                            Column(
-                                Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
-                            ) {
-                                Text(
-                                    karya.nama,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 18.sp,
-                                    color = Color(0xFF4A0E24)
-                                )
-                                Text(
-                                    "oleh ${karya.uploader}",
-                                    fontSize = 13.sp,
-                                    color = Color(0xFF7A4E5A),
-                                    fontWeight = FontWeight.Medium
-                                )
+                Spacer(Modifier.height(12.dp))
+
+                LazyColumn {
+                    items(
+                        karyaList.filter {
+                            it.judul.contains(search, ignoreCase = true)
+                        }
+                    ) { karya ->
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(8.dp)
+                                .clickable { selectedItem = karya }
+                        ) {
+                            Image(
+                                painter = rememberAsyncImagePainter(
+                                    model = "http://10.0.2.2:8000/storage/${karya.gambar}"
+                                ),
+                                contentDescription = karya.judul,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(200.dp),
+                                contentScale = ContentScale.Crop
+                            )
+
+                            Column(Modifier.padding(12.dp)) {
+                                Text(karya.judul, fontWeight = FontWeight.Bold)
+                                karya.uploader_name?.let { Text(it, fontSize = 13.sp) }
                             }
                         }
                     }
                 }
             }
-        }
 
-        // ✅ tampilkan dialog detail di atas semua elemen
-        if (selectedItem != null) {
-            DetailKaryaDialog(
-                karya = selectedItem!!,
-                onDismiss = { selectedItem = null }
-            )
+            if (selectedItem != null) {
+                DetailKaryaDialog(
+                    karya = selectedItem!!,
+                    onDismiss = { selectedItem = null }
+                )
+            }
         }
     }
 }

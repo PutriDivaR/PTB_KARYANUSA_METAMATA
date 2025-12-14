@@ -1,11 +1,19 @@
 package com.example.karyanusa.network
 
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import okhttp3.ResponseBody
 import retrofit2.Call
 import retrofit2.http.Body
+import retrofit2.http.DELETE
+
 import retrofit2.http.GET
 import retrofit2.http.Header
+import retrofit2.http.Multipart
 import retrofit2.http.POST
+import retrofit2.http.PUT
+import retrofit2.http.Part
+import retrofit2.http.PartMap
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -61,7 +69,47 @@ data class Materi(
     val video: String?
 )
 
-// ENROLLMENT / PROGRESS
+data class UploadResponse(
+    val status: Boolean,
+    val message: String,
+    val file_url: String?
+)
+
+data class ViewResponse(
+    val status: Boolean,
+    val message: String,
+    val views: Int
+)
+
+data class KaryaResponse(
+    val status: Boolean,
+    val data: List<KaryaData>
+)
+
+data class KaryaData(
+    val galeri_id: Int,
+    val user_id: Int,
+    val judul: String,
+    val caption: String,
+    val gambar: String,
+    val tanggal_upload: String?,
+    val created_at: String?,
+    val updated_at: String?,
+    val views: Int = 0,
+    val uploader_name: String?,
+)
+
+
+data class SimpleResponse(
+    val status: Boolean,
+    val message: String
+)
+
+data class NotifikasiData(
+    val judul: String,
+    val pesan: String,
+    val waktu: String
+)
 
 data class EnrollmentCheckResponse(
     val enrolled: Boolean,
@@ -86,6 +134,7 @@ data class MateriCompletedResponse(
     val completed: Boolean
 )
 
+
 data class Notifikasi(
     val notif_id: Int,
     val from_user: Int,
@@ -98,6 +147,26 @@ data class Notifikasi(
     val created_at: String
 )
 
+data class ForumPertanyaanResponse(
+    val pertanyaan_id: Int,
+    val user_id: Int,
+    val image_forum: String?,
+    val isi: String,
+    val tanggal: String,
+    val user: UserData?,
+    val jawaban: List<ForumJawabanResponse>?
+
+)
+
+data class ForumJawabanResponse(
+    val jawaban_id: Int,
+    val user_id: Int,
+    val pertanyaan_id: Int,
+    val image_jawaban: String?,
+    val isi: String,
+    val tanggal: String,
+    val user: UserData?
+)
 
 
 // API SERVICE
@@ -126,6 +195,46 @@ interface ApiService {
         @Path("kursus_id") kursusId: Int
     ): Call<List<Materi>>
 
+
+    // ✅ Upload Karya (tambah token)
+    @Multipart
+    @POST("api/karya/upload")
+    fun uploadKarya(
+        @Header("Authorization") token: String,
+        @Part gambar: MultipartBody.Part?,
+        @Part("nama") nama: RequestBody,
+        @Part("deskripsi") deskripsi: RequestBody
+    ): Call<UploadResponse>
+
+    // ✅ Get Semua Karya (publik)
+    @GET("api/karya")
+    fun getKarya(): Call<KaryaResponse>
+
+    // ✅ Get Karya Pribadi (butuh token)
+    @GET("api/karya/my")
+    fun getMyKarya(
+        @Header("Authorization") token: String
+    ): Call<KaryaResponse>
+
+    // ✅ Delete Karya (butuh token)
+    @DELETE("api/karya/{id}")
+
+    fun deleteKarya(
+        @Header("Authorization") token: String,
+        @Path("id") id: Int
+    ): Call<SimpleResponse>
+
+    // ✅ Update Karya (tambah token)
+    @Multipart
+    @POST("api/karya/update/{id}")
+    fun updateKarya(
+        @Header("Authorization") token: String,
+        @Path("id") id: Int,
+        @PartMap data: Map<String, @JvmSuppressWildcards RequestBody>
+    ): Call<SimpleResponse>
+
+    @POST("api/karya/{id}/view")
+    fun incrementView(@Path("id") id: Int): Call<ViewResponse>
 
     // --- Enrollment ---
     @POST("api/enroll")
@@ -167,12 +276,64 @@ interface ApiService {
         @Path("materiId") materiId: Int
     ): Call<MateriCompletedResponse>
 
+
+    // Ambil semua pertanyaan forum
+    @GET("api/pertanyaan")
+    fun getPertanyaan(
+        @Header("Authorization") token: String
+    ): Call<List<ForumPertanyaanResponse>>
+
+    @GET("api/pertanyaan/{id}")
+    fun getPertanyaanDetail(
+        @Header("Authorization") token: String,
+        @Path("id") id: Int
+    ): Call<ForumPertanyaanResponse>
+
+
+    // Tambah pertanyaan
+    // ✅ PERBAIKAN: Tambah Authorization header dan return ForumPertanyaanResponse
+    @Multipart
+    @POST("api/pertanyaan")
+    fun tambahPertanyaan(
+        @Header("Authorization") token: String,
+        @Part("isi") isi: RequestBody,
+        @Part image_forum: MultipartBody.Part? = null
+    ): Call<ForumPertanyaanResponse>  // ✅ Bukan Void!
+
+    // Tambah jawaban
+    @Multipart
+    @POST("api/pertanyaan/{id}/jawaban")
+    fun tambahJawaban(
+        @Header("Authorization") token: String,
+        @Path("id") id: Int,
+        @Part("isi") isi: RequestBody,
+        @Part image_jawaban: MultipartBody.Part? = null
+    ): Call<ForumJawabanResponse>
+
+
+    @GET("profile/{id}")
+    fun getProfile(
+        @Header("Authorization") token: String,  // Sudah format "Bearer xxx"
+        @Path("id") userId: Int
+    ): Call<UserData>
+
+    @PUT("profile/{id}")
+    fun updateProfile(
+        @Header("Authorization") token: String,
+        @Path("id") userId: Int,
+        @Body body: Map<String, String>
+    ): Call<UserData>
+
+
+
+    //NOTIF
     // NOTIFIKASI
     @POST("api/notifikasi/send")
     fun sendNotification(
         @Header("Authorization") token: String,
         @Body body: Map<String, @JvmSuppressWildcards Any>
     ): Call<ResponseBody>
+
 
     @GET("api/notifikasi")
     fun getNotifications(
@@ -195,5 +356,5 @@ interface ApiService {
         @Body body: Map<String, String>
     ): Call<ResponseBody>
 
-
 }
+

@@ -37,8 +37,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.core.net.toUri
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
+import com.example.karyanusa.component.auth.LoginTokenManager
+import com.example.karyanusa.network.ForumPertanyaanResponse
+import com.example.karyanusa.network.RetrofitClient
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
+import java.text.SimpleDateFormat
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,36 +55,132 @@ fun ForumEditPage(
     navController: NavController,
     questionId: Int
 ) {
-    val question = ForumData.questions.find { it.id == questionId }
-
-    if (question == null) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("Pertanyaan tidak ditemukan", color = Color.Gray)
-        }
-        return
-    }
-
     val context = LocalContext.current
-    var questionText by remember { mutableStateOf(question.question) }
-    var selectedCategory by remember { mutableStateOf(question.category) }
+    val tokenManager = remember { LoginTokenManager(context) }
+
+    // State untuk API
+    var isLoading by remember { mutableStateOf(true) }
+    var isSaving by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var questionData by remember { mutableStateOf<ForumPertanyaanResponse?>(null) }
+
+    // State untuk edit
+    var questionText by remember { mutableStateOf("") }
+    var selectedCategory by remember { mutableStateOf("") }
     val editableImages = remember { mutableStateListOf<Uri>() }
 
-    // isi gambar awal
-    LaunchedEffect(questionId) {
-        editableImages.clear()
-        editableImages.addAll(question.imageUris.map { Uri.parse(it) })
-    }
-
+    // State untuk UI
     var cameraImageUri by remember { mutableStateOf<Uri?>(null) }
     var showImageViewer by remember { mutableStateOf(false) }
-    var selectedImageIndex by remember { mutableStateOf(0) }
+    var selectedImageIndex by remember { mutableIntStateOf(0) }
     var viewerImages by remember { mutableStateOf<List<String>>(emptyList()) }
     var showCategoryDialog by remember { mutableStateOf(false) }
     var showConfirmDialog by remember { mutableStateOf(false) }
+    var showExitConfirmDialog by remember { mutableStateOf(false) }
 
     val kategoriList = listOf("Anyaman", "Batik", "Tenun", "Kerajinan Lain", "Lainnya")
 
-    // kamera launcher
+    // ✅ Fungsi untuk load detail pertanyaan dari API
+    fun loadQuestionForEdit() {
+        isLoading = true
+        errorMessage = null
+
+        val token = tokenManager.getToken()
+
+        // Cek token dulu
+        if (token.isNullOrEmpty()) {
+            isLoading = false
+            errorMessage = "Token tidak ditemukan, silakan login."
+            return
+        }
+
+        RetrofitClient.instance.getPertanyaanDetail("Bearer $token", questionId)
+            .enqueue(object : Callback<ForumPertanyaanResponse> {
+
+                override fun onResponse(
+                    call: Call<ForumPertanyaanResponse>,
+                    response: Response<ForumPertanyaanResponse>
+                ) {
+                    isLoading = false
+
+                    if (response.isSuccessful) {
+                        val data = response.body()
+
+                        if (data != null) {
+                            questionData = data
+                            questionText = data.isi
+                            selectedCategory = "Anyaman"
+
+                            // Load gambar ke list editableImages
+                            editableImages.clear()
+                            if (!data.image_forum.isNullOrEmpty()) {
+                                editableImages.add(data.image_forum.toUri())
+                            }
+
+                        } else {
+                            errorMessage = "Data tidak ditemukan"
+                        }
+
+                    } else if (response.code() == 401) {
+                        errorMessage = "Sesi berakhir. Silakan login kembali."
+
+                    } else {
+                        val errorBody = response.errorBody()?.string()
+                        errorMessage = "Gagal memuat data (${response.code()}): $errorBody"
+                    }
+                }
+
+                override fun onFailure(
+                    call: Call<ForumPertanyaanResponse>,
+                    t: Throwable
+                ) {
+                    isLoading = false
+                    errorMessage = "Koneksi gagal: ${t.message}"
+                }
+            })
+    }
+
+    // ✅ Fungsi untuk update pertanyaan
+    fun updateQuestion() {
+        isSaving = true
+
+        // TODO: Implementasi API update jika ada endpoint-nya
+        Toast.makeText(context, "Fitur update belum tersedia di API", Toast.LENGTH_SHORT).show()
+        isSaving = false
+        showConfirmDialog = false
+    }
+
+    // ✅ Fungsi format tanggal
+    fun formatTanggal(tanggal: String): String {
+        return try {
+            val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'", Locale.getDefault())
+            val outputFormat = SimpleDateFormat(
+                "dd MMM yyyy, HH:mm",
+                Locale.Builder().setLanguage("id").setRegion("ID").build()
+            )
+            val date = inputFormat.parse(tanggal)
+            outputFormat.format(date ?: Date())
+        } catch (_: Exception) {
+            try {
+                val inputFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+                val outputFormat = SimpleDateFormat(
+                    "dd MMM yyyy, HH:mm",
+                    Locale.Builder().setLanguage("id").setRegion("ID").build()
+                )
+                val date = inputFormat.parse(tanggal)
+                outputFormat.format(date ?: Date())
+            } catch (_: Exception) {
+                tanggal
+            }
+        }
+    }
+
+    // Load data pertama kali
+    LaunchedEffect(questionId) {
+        loadQuestionForEdit()
+    }
+
+    // Camera & Image Picker Launchers
     val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
         if (success && cameraImageUri != null) {
             if (editableImages.size < 4) editableImages.add(cameraImageUri!!)
@@ -103,7 +208,6 @@ fun ForumEditPage(
             } else editableImages.addAll(uris)
         }
     }
-    var showExitConfirmDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -118,23 +222,27 @@ fun ForumEditPage(
                 },
                 navigationIcon = {
                     IconButton(onClick = {
-                        // Cek apakah ada perubahan
-                        val textChanged = questionText != question.question
-                        val categoryChanged = selectedCategory != question.category
-                        val imageChanged = editableImages.map { it.toString() } != question.imageUris
+                        if (questionData != null) {
+                            val textChanged = questionText != questionData!!.isi
+                            val imageChanged = editableImages.map { it.toString() } !=
+                                    listOfNotNull(questionData!!.image_forum)
 
-                        if (textChanged || categoryChanged || imageChanged) {
-                            // Jika ada perubahan, tampilkan konfirmasi
-                            showConfirmDialog = true
+                            if (textChanged || imageChanged) {
+                                showExitConfirmDialog = true
+                            } else {
+                                navController.popBackStack()
+                            }
                         } else {
-                            // Jika tidak ada perubahan, langsung kembali
                             navController.popBackStack()
                         }
                     }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali", tint = Color(0xFF4A0E24))
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Kembali",
+                            tint = Color(0xFF4A0E24)
+                        )
                     }
                 },
-
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFFFFE4EC))
             )
         },
@@ -153,7 +261,7 @@ fun ForumEditPage(
                     IconButton(onClick = { navController.navigate("kursus") }) {
                         Icon(Icons.AutoMirrored.Filled.MenuBook, null, tint = Color(0xFF4A0E24))
                     }
-                    IconButton(onClick = { navController.navigate("galeri") }) {
+                    IconButton(onClick = { navController.navigate("gallery") }) {
                         Icon(Icons.Default.AddAPhoto, null, tint = Color(0xFF4A0E24))
                     }
                     IconButton(onClick = { navController.navigate("profile") }) {
@@ -165,6 +273,39 @@ fun ForumEditPage(
         containerColor = Color(0xFFFFF5F7)
     ) { innerPadding ->
         Box(Modifier.fillMaxSize().padding(innerPadding)) {
+
+            if (isLoading) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = Color(0xFF4A0E24))
+                }
+                return@Scaffold
+            }
+
+            if (errorMessage != null) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("Error: $errorMessage", color = Color.Red, fontSize = 14.sp)
+                        Spacer(Modifier.height(16.dp))
+                        Button(
+                            onClick = { loadQuestionForEdit() },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4A0E24))
+                        ) {
+                            Text("Coba Lagi")
+                        }
+                    }
+                }
+                return@Scaffold
+            }
+
+            if (questionData == null) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("Pertanyaan tidak ditemukan", color = Color.Gray)
+                }
+                return@Scaffold
+            }
+
+            val data = questionData!!
+
             LazyColumn(
                 Modifier.fillMaxSize().padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -181,14 +322,25 @@ fun ForumEditPage(
                             )
                             Spacer(Modifier.width(12.dp))
                             Column {
-                                Text(question.displayName, fontWeight = FontWeight.Bold, color = Color(0xFF4A0E24))
-                                Text("${question.username} • ${question.time}", color = Color.Gray, fontSize = 13.sp)
+                                Text(
+                                    data.user?.nama ?: "Anonymous",
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF4A0E24)
+                                )
+                                Text(
+                                    "${data.user?.username ?: "@user"} • ${formatTanggal(data.tanggal)}",
+                                    color = Color.Gray,
+                                    fontSize = 13.sp
+                                )
                             }
                             Spacer(Modifier.weight(1f))
                             Surface(color = Color(0xFF4A0E24), shape = RoundedCornerShape(8.dp)) {
-                                Text("${question.replies} Balasan",
-                                    color = Color.White, fontSize = 13.sp,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+                                Text(
+                                    "${data.jawaban?.size ?: 0} Balasan",
+                                    color = Color.White,
+                                    fontSize = 13.sp,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
                             }
                         }
 
@@ -202,9 +354,12 @@ fun ForumEditPage(
                                 .background(Color.White, RoundedCornerShape(12.dp))
                                 .padding(12.dp),
                             decorationBox = { inner ->
-                                if (questionText.isEmpty()) Text("Tulis pertanyaan...", color = Color.Gray)
+                                if (questionText.isEmpty()) {
+                                    Text("Tulis pertanyaan...", color = Color.Gray)
+                                }
                                 inner()
-                            }
+                            },
+                            enabled = !isSaving
                         )
 
                         Spacer(Modifier.height(12.dp))
@@ -236,9 +391,15 @@ fun ForumEditPage(
                                             modifier = Modifier
                                                 .align(Alignment.TopEnd)
                                                 .background(Color.Black.copy(alpha = 0.4f), CircleShape)
-                                                .size(24.dp)
+                                                .size(24.dp),
+                                            enabled = !isSaving
                                         ) {
-                                            Icon(Icons.Default.Close, null, tint = Color.White, modifier = Modifier.size(14.dp))
+                                            Icon(
+                                                Icons.Default.Close,
+                                                null,
+                                                tint = Color.White,
+                                                modifier = Modifier.size(14.dp)
+                                            )
                                         }
                                     }
                                 }
@@ -250,48 +411,85 @@ fun ForumEditPage(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Kotak putih menyesuaikan ukuran dua ikon
                             Row(
                                 modifier = Modifier
                                     .background(Color.White, RoundedCornerShape(12.dp))
                                     .padding(horizontal = 4.dp, vertical = 2.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                IconButton(onClick = { imagePicker.launch("image/*") }) {
+                                IconButton(
+                                    onClick = { imagePicker.launch("image/*") },
+                                    enabled = !isSaving
+                                ) {
                                     Icon(Icons.Default.AddPhotoAlternate, null, tint = Color(0xFF4A0E24))
                                 }
-                                IconButton(onClick = { cameraPermissionLauncher.launch(Manifest.permission.CAMERA) }) {
+                                IconButton(
+                                    onClick = { cameraPermissionLauncher.launch(Manifest.permission.CAMERA) },
+                                    enabled = !isSaving
+                                ) {
                                     Icon(Icons.Default.CameraAlt, null, tint = Color(0xFF4A0E24))
                                 }
                             }
-
-                            Spacer(modifier = Modifier.weight(1f)) // dorong tombol simpan ke kanan
+                            Spacer(modifier = Modifier.weight(1f))
                         }
                     }
 
                     Spacer(Modifier.height(16.dp))
-                    Text("Balasan", color = Color(0xFF4A0E24), fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    Text(
+                        "Balasan",
+                        color = Color(0xFF4A0E24),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp
+                    )
                 }
 
-                items(question.replyList) { reply ->
-                    Column(
-                        Modifier.fillMaxWidth().background(Color(0xFFFFE4EC), RoundedCornerShape(12.dp)).padding(12.dp)
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.size(36.dp).clip(CircleShape).background(Color(0xFFD9D9D9)))
-                            Spacer(Modifier.width(8.dp))
-                            Column {
-                                Text(reply.displayName, fontWeight = FontWeight.Bold, color = Color(0xFF4A0E24))
-                                Text(reply.username + " • " + reply.time, color = Color.Gray, fontSize = 12.sp)
-                            }
+                if (data.jawaban.isNullOrEmpty()) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "Belum ada balasan",
+                                color = Color.Gray,
+                                fontSize = 14.sp
+                            )
                         }
-                        Spacer(Modifier.height(8.dp))
-                        Text(reply.text, fontSize = 14.sp, color = Color.Black)
+                    }
+                } else {
+                    items(data.jawaban) { reply ->
+                        Column(
+                            Modifier.fillMaxWidth()
+                                .background(Color(0xFFFFE4EC), RoundedCornerShape(12.dp))
+                                .padding(12.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    Modifier.size(36.dp).clip(CircleShape).background(Color(0xFFD9D9D9))
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Column {
+                                    Text(
+                                        reply.user?.nama ?: "Anonymous",
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF4A0E24)
+                                    )
+                                    Text(
+                                        "${reply.user?.username ?: "@user"} • ${formatTanggal(reply.tanggal)}",
+                                        color = Color.Gray,
+                                        fontSize = 12.sp
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            Text(reply.isi, fontSize = 14.sp, color = Color.Black)
+                        }
                     }
                 }
             }
 
-            // === Floating Buttons (Kategori & Simpan) ===
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -299,12 +497,13 @@ fun ForumEditPage(
                     .padding(horizontal = 24.dp, vertical = 24.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // 🔹 Tombol kategori di kiri
                 Surface(
                     shape = RoundedCornerShape(50),
                     color = Color(0xFFF5F5F5),
                     shadowElevation = 6.dp,
-                    modifier = Modifier.clickable { showCategoryDialog = true }
+                    modifier = Modifier.clickable {
+                        if (!isSaving) showCategoryDialog = true
+                    }
                 ) {
                     Text(
                         text = selectedCategory,
@@ -315,31 +514,43 @@ fun ForumEditPage(
                     )
                 }
 
-                // 🔹 Tombol simpan di kanan
                 Button(
                     onClick = {
-                        if (questionText.isNotBlank()) showConfirmDialog = true
-                        else Toast.makeText(context, "Isi pertanyaan dulu", Toast.LENGTH_SHORT).show()
+                        if (questionText.isNotBlank()) {
+                            showConfirmDialog = true
+                        } else {
+                            Toast.makeText(context, "Isi pertanyaan dulu", Toast.LENGTH_SHORT).show()
+                        }
                     },
                     shape = RoundedCornerShape(50),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4A0E24)),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp)
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp),
+                    enabled = !isSaving
                 ) {
-                    Text(
-                        text = "Simpan",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
-                    )
+                    if (isSaving) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text(
+                            text = "Simpan",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                        )
+                    }
                 }
             }
-
 
             if (showCategoryDialog) {
                 Dialog(onDismissRequest = { showCategoryDialog = false }) {
                     Box(
-                        Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(16.dp)).padding(20.dp)
+                        Modifier.fillMaxWidth()
+                            .background(Color.White, RoundedCornerShape(16.dp))
+                            .padding(20.dp)
                     ) {
                         Column {
                             Text("Pilih Kategori", fontWeight = FontWeight.Bold, fontSize = 18.sp)
@@ -360,28 +571,25 @@ fun ForumEditPage(
                 }
             }
 
-            // === Dialog Konfirmasi Simpan ===
             if (showConfirmDialog) {
                 AlertDialog(
-                    onDismissRequest = { showConfirmDialog = false },
+                    onDismissRequest = { if (!isSaving) showConfirmDialog = false },
                     confirmButton = {
-                        TextButton(onClick = {
-                            val updatedImages = editableImages.map { it.toString() }
-                            ForumData.updateQuestion(
-                                id = question.id,
-                                newText = questionText,
-                                newCategory = selectedCategory,
-                                newImages = updatedImages
-                            )
-                            showConfirmDialog = false
-                            navController.navigate("forum") {
-                                popUpTo("forum") { inclusive = true }
-                            }
-                        }) {
+                        TextButton(
+                            onClick = { updateQuestion() },
+                            enabled = !isSaving
+                        ) {
                             Text("Ya", color = Color(0xFF4A0E24))
                         }
                     },
-                    dismissButton = { TextButton(onClick = { showConfirmDialog = false }) { Text("Batal") } },
+                    dismissButton = {
+                        TextButton(
+                            onClick = { showConfirmDialog = false },
+                            enabled = !isSaving
+                        ) {
+                            Text("Batal")
+                        }
+                    },
                     title = { Text("Konfirmasi", fontWeight = FontWeight.Bold) },
                     text = { Text("Apakah Anda yakin ingin menyimpan perubahan?") },
                     containerColor = Color.White,
@@ -389,7 +597,6 @@ fun ForumEditPage(
                 )
             }
 
-// === Dialog Konfirmasi Kembali (batal edit) ===
             if (showExitConfirmDialog) {
                 AlertDialog(
                     onDismissRequest = { showExitConfirmDialog = false },
@@ -412,11 +619,13 @@ fun ForumEditPage(
                 )
             }
 
-
             if (showImageViewer) {
                 Dialog(onDismissRequest = { showImageViewer = false }) {
                     Box(Modifier.fillMaxSize().background(Color.Black)) {
-                        val pagerState = rememberPagerState(initialPage = selectedImageIndex, pageCount = { viewerImages.size })
+                        val pagerState = rememberPagerState(
+                            initialPage = selectedImageIndex,
+                            pageCount = { viewerImages.size }
+                        )
                         HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
                             Image(
                                 painter = rememberAsyncImagePainter(viewerImages[page]),
