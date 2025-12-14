@@ -94,7 +94,7 @@ data class Notifikasi(
     val title: String,
     val message: String,
     val related_id: Int?,
-    val is_read: Boolean,
+    val is_read: Int,
     val created_at: String
 )
 
@@ -174,7 +174,6 @@ interface ApiService {
         @Body body: Map<String, @JvmSuppressWildcards Any>
     ): Call<ResponseBody>
 
-
     @GET("api/notifikasi")
     fun getNotifications(
         @Header("Authorization") token: String
@@ -190,6 +189,11 @@ interface ApiService {
         @Header("Authorization") token: String
     ): Call<List<UserData>>
 
+    @POST("api/users/fcm-token")
+    fun updateFcmToken(
+        @Header("Authorization") token: String,
+        @Body body: Map<String, String>
+    ): Call<ResponseBody>
 
 
 }

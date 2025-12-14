@@ -28,7 +28,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
-import com.example.karyanusa.component.beranda.NotifikasiRepository
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -228,7 +227,6 @@ fun UploadKaryaPage(navController: NavController) {
                             )
                             KaryaRepository.daftarKarya.add(karyaBaru)
 
-                            NotifikasiRepository.tambahNotifikasi("Karya '$namaKarya' berhasil diunggah 🎉")
 
                             snackbarMessage = "Karya '$namaKarya' berhasil diunggah!"
                             showSnackbar = true

@@ -29,6 +29,7 @@ import com.example.karyanusa.network.RetrofitClient
 import com.example.karyanusa.network.LoginRequest
 import com.example.karyanusa.network.LoginResponse
 import androidx.compose.ui.platform.LocalContext
+import okhttp3.ResponseBody
 
 
 @Composable
@@ -114,6 +115,22 @@ fun LoginScreen(navController: NavController) {
                                     userId = body.user_id,
                                     userName = body.nama
                                 )
+
+                                val fcm = tokenManager.getFcmToken()
+                                if (fcm != null) {
+                                    RetrofitClient.instance.updateFcmToken(
+                                        "Bearer ${body.token}",
+                                        mapOf("fcm_token" to fcm)
+                                    ).enqueue(object : Callback<ResponseBody> {
+                                        override fun onResponse(c: Call<ResponseBody>, r: Response<ResponseBody>) {
+                                            Log.d("LOGIN_FCM", "Token FCM dikirim ke backend")
+                                        }
+                                        override fun onFailure(c: Call<ResponseBody>, t: Throwable) {
+                                            Log.e("LOGIN_FCM", "Gagal kirim token FCM: ${t.message}")
+                                        }
+                                    })
+                                }
+
 
                                 Log.d("LOGIN_DEBUG", "Saved user_id = ${body.user_id}")
                                 Log.d("LOGIN_DEBUG", "Saved token = ${body.token}")
