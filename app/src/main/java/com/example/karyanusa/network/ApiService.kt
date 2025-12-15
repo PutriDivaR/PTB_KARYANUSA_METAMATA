@@ -356,5 +356,12 @@ interface ApiService {
         @Body body: Map<String, String>
     ): Call<ResponseBody>
 
+    @POST("api/notifikasi/{id}/read")
+    fun markNotifRead(
+        @Header("Authorization") token: String,
+        @Path("id") notifId: Int
+    ): Call<ResponseBody>
+
+
 }
 

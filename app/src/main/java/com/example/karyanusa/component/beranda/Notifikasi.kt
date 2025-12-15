@@ -2,6 +2,7 @@ package com.example.karyanusa.component.beranda
 
 import android.util.Log
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -26,6 +27,7 @@ import androidx.navigation.NavController
 import com.example.karyanusa.component.auth.LoginTokenManager
 import com.example.karyanusa.network.Notifikasi
 import com.example.karyanusa.network.RetrofitClient
+import okhttp3.ResponseBody
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -164,19 +166,48 @@ fun NotifikasiPage(navController: NavController) {
                             .padding(16.dp)
                     ) {
                         items(notifikasiList) { notif ->
+
                             Card(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(vertical = 8.dp),
+                                    .padding(vertical = 8.dp)
+                                    .clickable {
+
+                                        // === 1. UPDATE UI LOKAL ===
+                                        notifikasiList = notifikasiList.map {
+                                            if (it.notif_id == notif.notif_id)
+                                                it.copy(is_read = 1)
+                                            else it
+                                        }
+
+                                        // === 2. UPDATE BACKEND ===
+                                        bearerToken?.let { token ->
+                                            markAsRead(
+                                                token = token,
+                                                notifId = notif.notif_id
+                                            ) {}
+                                        }
+
+                                        // === 3. NAVIGASI SESUAI TIPE ===
+                                        when (notif.type) {
+                                            "share_kursus" -> {
+                                                navController.navigate(
+                                                    "detail_kursus/${notif.related_id}"
+                                                )
+                                            }
+                                        }
+                                    },
                                 shape = RoundedCornerShape(12.dp),
                                 colors = CardDefaults.cardColors(
-                                    containerColor = if (notif.is_read != 0)
-                                        Color.White
-                                    else
-                                        Color(0xFFFFEEF3)
+                                    containerColor =
+                                        if (notif.is_read == 1)
+                                            Color.White
+                                        else
+                                            Color(0xFFFFEEF3)
                                 ),
                                 elevation = CardDefaults.cardElevation(4.dp)
                             ) {
+
                                 Column(Modifier.padding(16.dp)) {
 
                                     Text(
@@ -202,9 +233,33 @@ fun NotifikasiPage(navController: NavController) {
                                 }
                             }
                         }
+
                     }
                 }
             }
         }
     }
 }
+
+fun markAsRead(
+    token: String,
+    notifId: Int,
+    onDone: () -> Unit
+) {
+    RetrofitClient.instance
+        .markNotifRead(token, notifId)
+        .enqueue(object : Callback<ResponseBody> {
+            override fun onResponse(
+                call: Call<ResponseBody>,
+                response: Response<ResponseBody>
+            ) {
+                onDone()
+            }
+
+            override fun onFailure(call: Call<ResponseBody>, t: Throwable) {
+                Log.e("NOTIF_READ", "Gagal update is_read")
+                onDone()
+            }
+        })
+}
+

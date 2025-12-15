@@ -9,6 +9,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
+import androidx.compose.runtime.LaunchedEffect
 import androidx.core.view.WindowCompat
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -46,10 +47,20 @@ class MainActivity : ComponentActivity() {
         // MINTA IZIN NOTIFIKAASI dulu
         askNotificationPermission()
 
+        val notifType = intent.getStringExtra("type")
+        val relatedId = intent.getStringExtra("related_id")
+        val notifId = intent.getStringExtra("notif_id")
+
 
         setContent {
             KaryaNusaTheme {
                 val navController = rememberNavController()
+
+                LaunchedEffect(notifType, relatedId) {
+                    if (notifType == "share_kursus" && relatedId != null) {
+                        navController.navigate("detail_kursus/$relatedId")
+                    }
+                }
 
                 NavHost(
                     navController = navController,
@@ -187,6 +198,12 @@ class MainActivity : ComponentActivity() {
                     ) {
                         ProfilePage(navController)
                     }
+
+                    composable("detail_kursus/{id}") { backStackEntry ->
+                        val id = backStackEntry.arguments?.getString("id")?.toInt()
+                        DetailPage(navController, id!!)
+                    }
+
                 }
             }
         }
