@@ -1,5 +1,7 @@
 package com.example.karyanusa.component.galeri
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -27,10 +29,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import com.example.karyanusa.component.auth.LoginTokenManager
-import com.example.karyanusa.component.beranda.NotifHelper
 import com.example.karyanusa.network.ImageHelper
 import com.example.karyanusa.network.RetrofitClient
 import com.example.karyanusa.network.UploadResponse
@@ -40,9 +42,6 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -59,14 +58,11 @@ fun UploadKaryaPage(navController: NavController) {
     var snackbarMessage by remember { mutableStateOf("") }
     var isUploading by remember { mutableStateOf(false) }
 
-
-    val scope = rememberCoroutineScope()
-
     val pinkTua = Color(0xFF4A0E24)
     val background = Color(0xFFFFF5F7)
     val accent = Color(0xFFFFE4EC)
 
-    // Gallery Picker
+    // ✅ Gallery Picker
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -74,12 +70,43 @@ fun UploadKaryaPage(navController: NavController) {
         capturedBitmap = null
     }
 
-    // Camera Capture
+    // ✅ Camera Capture (harus dideklarasikan SEBELUM cameraPermissionLauncher)
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicturePreview()
     ) { bitmap: Bitmap? ->
         capturedBitmap = bitmap
         imageUri = null
+    }
+
+    // ✅ Permission Launcher untuk Camera
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            // Permission granted, buka kamera
+            cameraLauncher.launch(null)
+        } else {
+            // Permission denied
+            snackbarMessage = "Izin kamera ditolak"
+            showSnackbar = true
+        }
+    }
+
+    // ✅ Function untuk check dan request camera permission
+    fun openCamera() {
+        when (PackageManager.PERMISSION_GRANTED) {
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.CAMERA
+            ) -> {
+                // Permission already granted
+                cameraLauncher.launch(null)
+            }
+            else -> {
+                // Request permission
+                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+            }
+        }
     }
 
     Scaffold(
@@ -174,7 +201,7 @@ fun UploadKaryaPage(navController: NavController) {
                     }
 
                     OutlinedButton(
-                        onClick = { cameraLauncher.launch(null) },
+                        onClick = { openCamera() }, // ✅ Pakai function openCamera()
                         enabled = !isUploading
                     ) {
                         Icon(Icons.Default.CameraAlt, contentDescription = null, tint = pinkTua)
@@ -227,27 +254,35 @@ fun UploadKaryaPage(navController: NavController) {
 
                 Spacer(Modifier.height(20.dp))
 
-
-// ----- BUTTON UPLOAD -----
+                // ----- BUTTON UPLOAD -----
                 Button(
                     onClick = {
-                        // 1. Validasi awal: pastikan ada gambar yang dipilih
                         if (imageUri == null && capturedBitmap == null) {
                             snackbarMessage = "⚠ Foto wajib diisi!"
                             showSnackbar = true
                             return@Button
                         }
 
+                        if (namaKarya.isBlank()) {
+                            snackbarMessage = "⚠ Nama karya wajib diisi!"
+                            showSnackbar = true
+                            return@Button
+                        }
+
+                        if (deskripsi.isBlank()) {
+                            snackbarMessage = "⚠ Deskripsi wajib diisi!"
+                            showSnackbar = true
+                            return@Button
+                        }
+
                         isUploading = true
 
-                        // 2. Buat imagePart TERLEBIH DAHULU dari Uri atau Bitmap
                         val imagePart = when {
                             imageUri != null -> ImageHelper.uriToMultipart(context, imageUri!!)
                             capturedBitmap != null -> ImageHelper.bitmapToMultipart(context, capturedBitmap!!)
                             else -> null
                         }
 
-                        // 3. SEKARANG, periksa apakah konversi gambar ke imagePart berhasil
                         if (imagePart == null) {
                             snackbarMessage = "Gagal memproses gambar!"
                             showSnackbar = true
@@ -255,7 +290,6 @@ fun UploadKaryaPage(navController: NavController) {
                             return@Button
                         }
 
-                        // 4. Siapkan data lainnya (nama, deskripsi, dan token)
                         val namaRB = namaKarya.toRequestBody("text/plain".toMediaTypeOrNull())
                         val deskRB = deskripsi.toRequestBody("text/plain".toMediaTypeOrNull())
 
@@ -269,7 +303,6 @@ fun UploadKaryaPage(navController: NavController) {
                             return@Button
                         }
 
-                        // 5. Panggil Retrofit dengan SEMUA ARGUMEN YANG BENAR
                         RetrofitClient.instance.uploadKarya(
                             token,
                             imagePart,
@@ -283,14 +316,6 @@ fun UploadKaryaPage(navController: NavController) {
                                 isUploading = false
 
                                 if (response.isSuccessful && response.body()?.status == true) {
-                                    NotifHelper.showUploadSuccessNotification(context)
-
-                                    val time = SimpleDateFormat(
-                                        "dd/MM/yyyy HH:mm",
-                                        Locale.getDefault()
-                                    ).format(Date())
-
-
                                     snackbarMessage = response.body()?.message ?: "Berhasil diunggah!"
                                     showSnackbar = true
                                     navController.popBackStack()
@@ -347,10 +372,6 @@ fun UploadKaryaPage(navController: NavController) {
     }
 }
 
-
-// -------------------------------------------------
-// SNACKBAR CUSTOM
-// -------------------------------------------------
 @Composable
 fun CustomTopSnackbar(
     message: String,

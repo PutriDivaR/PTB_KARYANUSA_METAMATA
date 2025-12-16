@@ -44,7 +44,7 @@ import retrofit2.Response
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DetailPage(navController: NavController, kursusId: Int) {
+fun DetailPage(navController: NavController, kursusId: Int, notifId: Int? = null) {
 
     // STATE
     var kursusList by remember { mutableStateOf<List<Kursus>>(emptyList()) }
@@ -63,9 +63,23 @@ fun DetailPage(navController: NavController, kursusId: Int) {
     // Find the course details
     val kursus = kursusList.find { it.kursus_id == kursusId }
 
+
+    LaunchedEffect(notifId) {
+        if (notifId != null && token != null) {
+            RetrofitClient.instance
+                .markNotifRead(token, notifId)
+                .enqueue(object : Callback<ResponseBody> {
+                    override fun onResponse(c: Call<ResponseBody>, r: Response<ResponseBody>) {}
+                    override fun onFailure(c: Call<ResponseBody>, t: Throwable) {}
+                })
+        }
+    }
+
+
     // Function to send notification when sharing
     fun sendCourseShareNotif(toUser: Int) {
         val currentIdInt = tokenManager.getUserId()
+        val currentUsername = tokenManager.getUserName()
         if (kursus == null) {
             Toast.makeText(context, "Kursus belum dimuat", Toast.LENGTH_SHORT).show()
             return
@@ -74,13 +88,17 @@ fun DetailPage(navController: NavController, kursusId: Int) {
             Toast.makeText(context, "Gagal mendapatkan ID pengguna", Toast.LENGTH_SHORT).show()
             return
         }
+        if (currentUsername == null) {
+            Toast.makeText(context, "Gagal mendapatkan username pengguna", Toast.LENGTH_SHORT).show()
+            return
+        }
 
         val body = mapOf(
             "from_user" to currentIdInt,
             "to_user" to toUser,
             "type" to "share_kursus",
             "title" to "Kursus Dibagikan",
-            "message" to "Temanmu membagikan kursus: ${kursus.judul}",
+            "message" to "$currentUsername membagikan kursus: ${kursus.judul}",
             "related_id" to kursusId
         )
 

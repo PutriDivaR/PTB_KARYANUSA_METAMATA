@@ -41,8 +41,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
-        askNotificationPermission()
-
         val notifType = intent.getStringExtra("type")
         val relatedId = intent.getStringExtra("related_id")
 
@@ -52,7 +50,7 @@ class MainActivity : ComponentActivity() {
                 val navController = rememberNavController()
 
                 LaunchedEffect(notifType, relatedId) {
-                    if (relatedId == null) return@LaunchedEffect
+                   if (relatedId == null) return@LaunchedEffect
 
                     when (notifType) {
                         "share_kursus" -> {
@@ -224,4 +222,6 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
 }
+

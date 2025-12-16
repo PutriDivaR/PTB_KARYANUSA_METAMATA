@@ -2,6 +2,7 @@ package com.example.karyanusa.fcm
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -29,11 +30,19 @@ object NotificationHelper {
     fun showNotification(context: Context, id: Int, title: String, body: String, intent: Intent) {
         createNotificationChannel(context)
 
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            0,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.karyanusalogo)
             .setContentTitle(title)
             .setContentText(body)
             .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
 
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
