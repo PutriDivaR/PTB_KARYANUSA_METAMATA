@@ -1,17 +1,15 @@
 package com.example.karyanusa
 
-<<<<<<< HEAD
-import android.os.Build
-=======
 
->>>>>>> da4156c29371295087b0f88c09cb5343a70a92d3
-import android.os.Bundle
+import android.os.Build
 import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
-import androidx.core.app.ActivityCompat
+import androidx.compose.runtime.LaunchedEffect
 import androidx.core.view.WindowCompat
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -24,7 +22,6 @@ import com.example.karyanusa.component.beranda.BerandaPage
 import com.example.karyanusa.component.beranda.NotifikasiPage
 import com.example.karyanusa.component.galeri.EditKaryaPage
 import com.example.karyanusa.component.galeri.GaleriPage
-import com.example.karyanusa.component.galeri.GaleriPribadiPage
 import com.example.karyanusa.component.galeri.GaleriPublikPage
 import com.example.karyanusa.component.forum.ForumAddPage
 import com.example.karyanusa.component.forum.ForumDetailPage
@@ -38,28 +35,44 @@ import com.example.karyanusa.component.profile.ProfilePage
 import com.example.karyanusa.ui.theme.KaryaNusaTheme
 import com.example.karyanusa.component.galeri.UploadKaryaPage
 
-
 @OptIn(ExperimentalAnimationApi::class)
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
-<<<<<<< HEAD
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(Manifest.permission.POST_NOTIFICATIONS),
-                100
-            )
-        }
+        askNotificationPermission()
 
-=======
->>>>>>> da4156c29371295087b0f88c09cb5343a70a92d3
+        val notifType = intent.getStringExtra("type")
+        val relatedId = intent.getStringExtra("related_id")
+
 
         setContent {
             KaryaNusaTheme {
                 val navController = rememberNavController()
+
+                LaunchedEffect(notifType, relatedId) {
+                    if (relatedId == null) return@LaunchedEffect
+
+                    when (notifType) {
+                        "share_kursus" -> {
+                            navController.navigate("detail_kursus/$relatedId")
+                        }
+                        "like" -> {
+                            // PERUBAHAN: Panggil rute 'galeri' dengan argumen
+                            navController.navigate("galeri?initialTab=pribadi")
+                        }
+
+                        "view_milestone" -> {
+                            navController.navigate("galeri?initialTab=pribadi")
+                        }
+
+                        //untuk wanda hapus aja '//' nya
+                        //"forum" -> {
+                        //navController.navigate("galeri?initialTab=pribadi") //ganti navigasi nya nanti
+                        // }
+                    }
+                }
 
                 NavHost(
                     navController = navController,
@@ -135,10 +148,6 @@ class MainActivity : ComponentActivity() {
                         GaleriPublikPage(navController)
                     }
 
-                    composable("galeriPribadi") {
-                        GaleriPribadiPage(navController)
-                    }
-
                     composable("upload") {
                         UploadKaryaPage(navController)
                     }
@@ -197,14 +206,22 @@ class MainActivity : ComponentActivity() {
                     ) {
                         ProfilePage(navController)
                     }
+
+                    composable("detail_kursus/{id}") { backStackEntry ->
+                        val id = backStackEntry.arguments?.getString("id")?.toInt()
+                        DetailPage(navController, id!!)
+                    }
                 }
             }
         }
     }
 
+    private fun askNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= 33) {
+            val permission = Manifest.permission.POST_NOTIFICATIONS
+            if (checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(arrayOf(permission), 1001)
+            }
+        }
+    }
 }
-
-
-
-
-

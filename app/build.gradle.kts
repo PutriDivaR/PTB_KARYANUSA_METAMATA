@@ -79,11 +79,9 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer:1.3.1")
     implementation("androidx.media3:media3-ui:1.3.1")
 
-<<<<<<< HEAD
-    //implementation("com.google.firebase:firebase-messaging:24.0.0")
-=======
+
     //FIREBASE NOTIF
->>>>>>> da4156c29371295087b0f88c09cb5343a70a92d3
     implementation(platform("com.google.firebase:firebase-bom:34.6.0"))
     implementation("com.google.firebase:firebase-analytics")
+    implementation ("com.google.firebase:firebase-messaging")
 }

@@ -3,6 +3,7 @@ package com.example.karyanusa.fcm
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
+import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import com.example.karyanusa.R
@@ -25,7 +26,7 @@ object NotificationHelper {
         }
     }
 
-    fun showNotification(context: Context, id: Int, title: String, body: String) {
+    fun showNotification(context: Context, id: Int, title: String, body: String, intent: Intent) {
         createNotificationChannel(context)
 
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)

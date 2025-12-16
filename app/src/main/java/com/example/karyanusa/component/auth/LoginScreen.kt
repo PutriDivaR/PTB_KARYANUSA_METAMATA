@@ -1,5 +1,7 @@
 package com.example.karyanusa.component.auth
 
+import android.content.Context
+import android.content.Intent
 import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.Image
@@ -29,6 +31,9 @@ import com.example.karyanusa.network.RetrofitClient
 import com.example.karyanusa.network.LoginRequest
 import com.example.karyanusa.network.LoginResponse
 import androidx.compose.ui.platform.LocalContext
+import com.example.karyanusa.fcm.NotificationHelper
+import com.example.karyanusa.network.Notifikasi
+import okhttp3.ResponseBody
 
 
 @Composable
@@ -115,12 +120,31 @@ fun LoginScreen(navController: NavController) {
                                     userName = body.nama
                                 )
 
+                                val fcm = tokenManager.getFcmToken()
+                                if (fcm != null) {
+                                    RetrofitClient.instance.updateFcmToken(
+                                        "Bearer ${body.token}",
+                                        mapOf("fcm_token" to fcm)
+                                    ).enqueue(object : Callback<ResponseBody> {
+                                        override fun onResponse(c: Call<ResponseBody>, r: Response<ResponseBody>) {
+                                            Log.d("LOGIN_FCM", "Token FCM dikirim ke backend")
+                                        }
+                                        override fun onFailure(c: Call<ResponseBody>, t: Throwable) {
+                                            Log.e("LOGIN_FCM", "Gagal kirim token FCM: ${t.message}")
+                                        }
+                                    })
+                                }
+
+
                                 Log.d("LOGIN_DEBUG", "Saved user_id = ${body.user_id}")
                                 Log.d("LOGIN_DEBUG", "Saved token = ${body.token}")
                                 Log.d("LOGIN_DEBUG", "Saved username = ${body.nama}")
 
 
                                 Toast.makeText(context, "Login Berhasil!", Toast.LENGTH_SHORT).show()
+
+                                cekNotifSaatLogin(context, body.token!!)
+
                                 navController.navigate("beranda")
                             } else {
                                 Toast.makeText(context, "Login gagal: ${response.body()?.message}", Toast.LENGTH_SHORT).show()
@@ -158,5 +182,38 @@ fun LoginScreen(navController: NavController) {
             }
         }
     }
+
 }
 
+fun cekNotifSaatLogin(context: Context, token: String) {
+    RetrofitClient.instance
+        .getNotifications("Bearer $token")
+        .enqueue(object : Callback<List<Notifikasi>> {
+
+            override fun onResponse(
+                call: Call<List<Notifikasi>>,
+                response: Response<List<Notifikasi>>
+            ) {
+                if (!response.isSuccessful) return
+
+                val unread = response.body()?.filter { it.is_read != 1 } ?: emptyList()
+
+                if (unread.isNotEmpty()) {
+                    val intent = Intent(context, Notifikasi::class.java).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                    }
+                    NotificationHelper.showNotification(
+                        context = context,
+                        id = 1001,
+                        title = "Kamu punya ${unread.size} notifikasi",
+                        body = unread.first().title,
+                        intent = intent
+                    )
+                }
+            }
+
+            override fun onFailure(call: Call<List<Notifikasi>>, t: Throwable) {
+                Log.e("LOGIN_NOTIF", t.message ?: "error")
+            }
+        })
+}

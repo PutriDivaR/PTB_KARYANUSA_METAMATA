@@ -31,9 +31,7 @@ import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import com.example.karyanusa.component.auth.LoginTokenManager
 import com.example.karyanusa.component.beranda.NotifHelper
-import com.example.karyanusa.component.beranda.NotifikasiRepository
 import com.example.karyanusa.network.ImageHelper
-import com.example.karyanusa.network.NotifikasiData
 import com.example.karyanusa.network.RetrofitClient
 import com.example.karyanusa.network.UploadResponse
 import kotlinx.coroutines.delay
@@ -292,13 +290,6 @@ fun UploadKaryaPage(navController: NavController) {
                                         Locale.getDefault()
                                     ).format(Date())
 
-                                    NotifikasiRepository.daftarNotifikasi.add(
-                                        NotifikasiData(
-                                            judul = namaKarya,
-                                            pesan = "Karya berhasil diupload!",
-                                            waktu = time
-                                        )
-                                    )
 
                                     snackbarMessage = response.body()?.message ?: "Berhasil diunggah!"
                                     showSnackbar = true
