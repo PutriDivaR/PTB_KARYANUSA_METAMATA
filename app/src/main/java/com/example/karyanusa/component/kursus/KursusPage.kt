@@ -22,9 +22,11 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import com.example.karyanusa.R
+import com.example.karyanusa.data.viewmodel.KursusViewModel
 import com.example.karyanusa.network.Kursus
 import com.example.karyanusa.network.RetrofitClient
 import retrofit2.Call
@@ -34,22 +36,11 @@ import retrofit2.Response
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun KursusPage(navController: NavController) {
-    var kursusList by remember { mutableStateOf<List<Kursus>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
 
-    // Ambil data dari bbackend
-    LaunchedEffect(Unit) {
-        RetrofitClient.instance.getCourses().enqueue(object : Callback<List<Kursus>> {
-            override fun onResponse(call: Call<List<Kursus>>, response: Response<List<Kursus>>) {
-                if (response.isSuccessful) kursusList = response.body() ?: emptyList()
-                isLoading = false
-            }
 
-            override fun onFailure(call: Call<List<Kursus>>, t: Throwable) {
-                isLoading = false
-            }
-        })
-    }
+    val viewModel: KursusViewModel = viewModel()
+    val kursusList by viewModel.kursus.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
 
     Scaffold(
         topBar = {
@@ -101,14 +92,26 @@ fun KursusPage(navController: NavController) {
                 .padding(innerPadding)
                 .background(Color(0xFFFFF5F7))
         ) {
-            if (isLoading) {
-                CircularProgressIndicator(Modifier.align(Alignment.Center))
-            } else {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                ) {
+
+            when {
+                isLoading -> {
+                    CircularProgressIndicator(Modifier.align(Alignment.Center))
+                }
+
+                kursusList.isEmpty() -> {
+                    Text(
+                        "Belum ada kursus",
+                        modifier = Modifier.align(Alignment.Center),
+                        color = Color.Gray
+                    )
+                }
+
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    ) {
                     items(kursusList) { kursus ->
                         Card(
                             modifier = Modifier
@@ -136,8 +139,6 @@ fun KursusPage(navController: NavController) {
                                 )
 
 
-
-
                                 Column(modifier = Modifier.padding(12.dp)) {
                                     Text(
                                         kursus.judul,
@@ -150,7 +151,8 @@ fun KursusPage(navController: NavController) {
                                         fontSize = 14.sp,
                                         color = Color.DarkGray,
 
-                                    )
+                                        )
+                                    }
                                 }
                             }
                         }
