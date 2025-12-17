@@ -22,7 +22,6 @@ import com.example.karyanusa.component.beranda.BerandaPage
 import com.example.karyanusa.component.beranda.NotifikasiPage
 import com.example.karyanusa.component.galeri.EditKaryaPage
 import com.example.karyanusa.component.galeri.GaleriPage
-import com.example.karyanusa.component.galeri.GaleriPribadiPage
 import com.example.karyanusa.component.galeri.GaleriPublikPage
 import com.example.karyanusa.component.forum.ForumAddPage
 import com.example.karyanusa.component.forum.ForumDetailPage
@@ -35,7 +34,7 @@ import com.example.karyanusa.component.kursus.MateriPage
 import com.example.karyanusa.component.profile.ProfilePage
 import com.example.karyanusa.ui.theme.KaryaNusaTheme
 import com.example.karyanusa.component.galeri.UploadKaryaPage
-
+import com.example.karyanusa.fcm.NotificationHelper
 
 @OptIn(ExperimentalAnimationApi::class)
 class MainActivity : ComponentActivity() {
@@ -43,13 +42,11 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
-
-        // MINTA IZIN NOTIFIKAASI dulu
+        NotificationHelper.createNotificationChannel(this)
         askNotificationPermission()
 
         val notifType = intent.getStringExtra("type")
         val relatedId = intent.getStringExtra("related_id")
-        val notifId = intent.getStringExtra("notif_id")
 
 
         setContent {
@@ -57,8 +54,25 @@ class MainActivity : ComponentActivity() {
                 val navController = rememberNavController()
 
                 LaunchedEffect(notifType, relatedId) {
-                    if (notifType == "share_kursus" && relatedId != null) {
-                        navController.navigate("detail_kursus/$relatedId")
+                   if (relatedId == null) return@LaunchedEffect
+
+                    when (notifType) {
+                        "share_kursus" -> {
+                            navController.navigate("detail_kursus/$relatedId")
+                        }
+                        "like" -> {
+                            // PERUBAHAN: Panggil rute 'galeri' dengan argumen
+                            navController.navigate("galeri?initialTab=pribadi")
+                        }
+
+                        "view_milestone" -> {
+                            navController.navigate("galeri?initialTab=pribadi")
+                        }
+
+                        //untuk wanda hapus aja '//' nya
+                        //"forum" -> {
+                        //navController.navigate("galeri?initialTab=pribadi") //ganti navigasi nya nanti
+                        // }
                     }
                 }
 
@@ -136,10 +150,6 @@ class MainActivity : ComponentActivity() {
                         GaleriPublikPage(navController)
                     }
 
-                    composable("galeriPribadi") {
-                        GaleriPribadiPage(navController)
-                    }
-
                     composable("upload") {
                         UploadKaryaPage(navController)
                     }
@@ -203,7 +213,6 @@ class MainActivity : ComponentActivity() {
                         val id = backStackEntry.arguments?.getString("id")?.toInt()
                         DetailPage(navController, id!!)
                     }
-
                 }
             }
         }
@@ -217,9 +226,5 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
 }
-
-
-
-
-

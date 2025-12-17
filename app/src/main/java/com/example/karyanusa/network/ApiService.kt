@@ -6,7 +6,6 @@ import okhttp3.ResponseBody
 import retrofit2.Call
 import retrofit2.http.Body
 import retrofit2.http.DELETE
-
 import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.Multipart
@@ -96,6 +95,7 @@ data class KaryaData(
     val created_at: String?,
     val updated_at: String?,
     val views: Int = 0,
+    val likes: Int = 0,
     val uploader_name: String?,
 )
 
@@ -103,12 +103,6 @@ data class KaryaData(
 data class SimpleResponse(
     val status: Boolean,
     val message: String
-)
-
-data class NotifikasiData(
-    val judul: String,
-    val pesan: String,
-    val waktu: String
 )
 
 data class EnrollmentCheckResponse(
@@ -134,19 +128,6 @@ data class MateriCompletedResponse(
     val completed: Boolean
 )
 
-
-data class Notifikasi(
-    val notif_id: Int,
-    val from_user: Int,
-    val to_user: Int,
-    val type: String,
-    val title: String,
-    val message: String,
-    val related_id: Int?,
-    val is_read: Int,
-    val created_at: String
-)
-
 data class ForumPertanyaanResponse(
     val pertanyaan_id: Int,
     val user_id: Int,
@@ -155,7 +136,6 @@ data class ForumPertanyaanResponse(
     val tanggal: String,
     val user: UserData?,
     val jawaban: List<ForumJawabanResponse>?
-
 )
 
 data class ForumJawabanResponse(
@@ -168,6 +148,35 @@ data class ForumJawabanResponse(
     val user: UserData?
 )
 
+// Notifikasi Class
+data class Notifikasi(
+    val notif_id: Int,
+    val from_user: Int,
+    val to_user: Int,
+    val type: String,
+    val title: String,
+    val message: String,
+    val related_id: Int?,
+    val is_read: Int,
+    val created_at: String
+)
+
+data class LikeResponse(
+    val status: Boolean,
+    val action: String, // "liked" atau "unliked"
+    val message: String,
+    val likes: Int,
+    val is_liked: Boolean
+)
+
+data class LikeCheckResponse(
+    val status: Boolean,
+    val is_liked: Boolean,
+    val likes: Int
+)
+
+
+
 
 // API SERVICE
 
@@ -179,7 +188,6 @@ interface ApiService {
 
     @POST("api/register")
     fun registerUser(@Body request: RegisterRequest): Call<RegisterResponse>
-
 
     // --- Kursus ---
     @GET("api/courses")
@@ -289,16 +297,13 @@ interface ApiService {
         @Path("id") id: Int
     ): Call<ForumPertanyaanResponse>
 
-
-    // Tambah pertanyaan
-    // ✅ PERBAIKAN: Tambah Authorization header dan return ForumPertanyaanResponse
     @Multipart
     @POST("api/pertanyaan")
     fun tambahPertanyaan(
         @Header("Authorization") token: String,
         @Part("isi") isi: RequestBody,
         @Part image_forum: MultipartBody.Part? = null
-    ): Call<ForumPertanyaanResponse>  // ✅ Bukan Void!
+    ): Call<ForumPertanyaanResponse>
 
     // Tambah jawaban
     @Multipart
@@ -309,7 +314,6 @@ interface ApiService {
         @Part("isi") isi: RequestBody,
         @Part image_jawaban: MultipartBody.Part? = null
     ): Call<ForumJawabanResponse>
-
 
     @GET("profile/{id}")
     fun getProfile(
@@ -324,16 +328,33 @@ interface ApiService {
         @Body body: Map<String, String>
     ): Call<UserData>
 
-
-
-    //NOTIF
-    // NOTIFIKASI
     @POST("api/notifikasi/send")
     fun sendNotification(
         @Header("Authorization") token: String,
         @Body body: Map<String, @JvmSuppressWildcards Any>
     ): Call<ResponseBody>
 
+    @GET("api/users")
+    fun getAllUsers(
+        @Header("Authorization") token: String,
+    ): Call<List<UserData>>
+
+    // ✅ Update Pertanyaan
+    @Multipart
+    @POST("api/pertanyaan/{id}/update")
+    fun updatePertanyaan(
+        @Header("Authorization") token: String,
+        @Path("id") id: Int,
+        @Part("isi") isi: RequestBody,
+        @Part image_forum: MultipartBody.Part? = null
+    ): Call<ForumPertanyaanResponse>
+
+    // ✅ Delete Pertanyaan
+    @DELETE("api/pertanyaan/{id}")
+    fun deletePertanyaan(
+        @Header("Authorization") token: String,
+        @Path("id") id: Int
+    ): Call<SimpleResponse>
 
     @GET("api/notifikasi")
     fun getNotifications(
@@ -345,23 +366,36 @@ interface ApiService {
         @Query("username") username: String
     ): Call<List<UserData>>
 
-    @GET("api/users")
-    fun getAllUsers(
-        @Header("Authorization") token: String
-    ): Call<List<UserData>>
-
     @POST("api/users/fcm-token")
     fun updateFcmToken(
         @Header("Authorization") token: String,
         @Body body: Map<String, String>
     ): Call<ResponseBody>
 
-    @POST("api/notifikasi/{id}/read")
-    fun markNotifRead(
+    @POST("api/notifikasi/read/{id}")
+    fun markNotificationAsRead(
         @Header("Authorization") token: String,
         @Path("id") notifId: Int
     ): Call<ResponseBody>
 
 
+    @POST("api/karya/{galeri_id}/like")
+    fun toggleLike(
+        @Header("Authorization") token: String,
+        @Path("galeri_id") galeriId: Int
+    ): Call<LikeResponse>
+
+    @GET("api/karya/{galeri_id}/check-like")
+    fun checkLike(
+        @Header("Authorization") token: String,
+        @Path("galeri_id") galeriId: Int
+    ): Call<LikeCheckResponse>
+
+
+    @POST("api/notifikasi/{id}/read")
+    fun markNotifRead(
+        @Header("Authorization") token: String,
+        @Path("id") notifId: Int
+    ): Call<ResponseBody>
 }
 

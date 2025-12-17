@@ -31,7 +31,6 @@ import com.example.karyanusa.network.RetrofitClient
 import com.example.karyanusa.network.LoginRequest
 import com.example.karyanusa.network.LoginResponse
 import androidx.compose.ui.platform.LocalContext
-import com.example.karyanusa.component.beranda.NotifikasiPage
 import com.example.karyanusa.fcm.NotificationHelper
 import com.example.karyanusa.network.Notifikasi
 import okhttp3.ResponseBody

@@ -316,7 +316,6 @@ fun UploadKaryaPage(navController: NavController) {
                                 isUploading = false
 
                                 if (response.isSuccessful && response.body()?.status == true) {
-
                                     snackbarMessage = response.body()?.message ?: "Berhasil diunggah!"
                                     showSnackbar = true
                                     navController.popBackStack()

@@ -191,10 +191,24 @@ fun NotifikasiPage(navController: NavController) {
                                         // === 3. NAVIGASI SESUAI TIPE ===
                                         when (notif.type) {
                                             "share_kursus" -> {
-                                                navController.navigate(
-                                                    "detail_kursus/${notif.related_id}"
-                                                )
+                                                notif.related_id?.let { id ->
+                                                    navController.navigate("detail_kursus/$id") // Ini sudah benar
+                                                }
                                             }
+
+                                            "like" -> {
+                                                // PERUBAHAN: Panggil rute 'galeri' dengan argumen
+                                                navController.navigate("galeri?initialTab=pribadi")
+                                            }
+
+                                            "view_milestone" -> {
+                                                navController.navigate("galeri?initialTab=pribadi")
+                                            }
+
+                                            //untuk wanda hapus aja '//' nya
+                                            //"forum" -> {
+                                            //navController.navigate("galeri?initialTab=pribadi") //ganti navigasi nya nanti
+                                            // }
                                         }
                                     },
                                 shape = RoundedCornerShape(12.dp),
