@@ -329,13 +329,13 @@ fun MateriPage(navController: NavController, kursusId: Int) {
                         }
                         Spacer(Modifier.height(8.dp))
                         LinearProgressIndicator(
-                        progress = { serverProgress / 100f },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(6.dp),
-                        color = Color(0xFF7A3E48),
-                        trackColor = Color.LightGray,
-                        strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
+                            progress = { serverProgress / 100f },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(6.dp),
+                            color = Color(0xFF7A3E48),
+                            trackColor = Color.LightGray,
+                            strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
                         )
                         Spacer(Modifier.height(12.dp))
 

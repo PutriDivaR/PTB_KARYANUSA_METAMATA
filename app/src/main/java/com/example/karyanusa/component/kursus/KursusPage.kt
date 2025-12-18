@@ -18,20 +18,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import coil.compose.AsyncImage
+import coil.compose.AsyncImagePainter
+import coil.compose.SubcomposeAsyncImage
+import coil.compose.SubcomposeAsyncImageContent
 import coil.compose.rememberAsyncImagePainter
+import coil.request.ImageRequest
 import com.example.karyanusa.R
 import com.example.karyanusa.data.viewmodel.KursusViewModel
-import com.example.karyanusa.network.Kursus
-import com.example.karyanusa.network.RetrofitClient
-import retrofit2.Call
-import retrofit2.Callback
-import retrofit2.Response
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -125,19 +127,42 @@ fun KursusPage(navController: NavController) {
                             colors = CardDefaults.cardColors(containerColor = Color.White)
                         ) {
                             Column {
-                                Image(
-                                    painter = rememberAsyncImagePainter(
-                                        model = kursus.thumbnail,
-                                        placeholder = painterResource(R.drawable.tessampul),
-                                        error = painterResource(R.drawable.tessampul)
-                                    ),
-                                    contentDescription = kursus.judul,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(160.dp),
-                                    contentScale = ContentScale.Crop
-                                )
+                                        SubcomposeAsyncImage(
+                                            model = ImageRequest.Builder(LocalContext.current)
+                                                .data(kursus.thumbnail)
+                                                .diskCacheKey(kursus.thumbnail)
+                                                .memoryCacheKey(kursus.thumbnail)
+                                                .build(),
+                                            contentDescription = kursus.judul,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(160.dp),
+                                            contentScale = ContentScale.Crop
+                                        ) {
+                                            when (painter.state) {
+                                                is AsyncImagePainter.State.Loading -> {
+                                                    // SKELETON
+                                                    Box(
+                                                        Modifier
+                                                            .fillMaxSize()
+                                                            .background(Color(0xFFEFEFEF))
+                                                    )
+                                                }
 
+                                                is AsyncImagePainter.State.Error -> {
+                                                    Image(
+                                                        painterResource(R.drawable.tessampul),
+                                                        contentDescription = null,
+                                                        modifier = Modifier.fillMaxSize(),
+                                                        contentScale = ContentScale.Crop
+                                                    )
+                                                }
+
+                                                else -> {
+                                                    SubcomposeAsyncImageContent()
+                                                }
+                                            }
+                                        }
 
                                 Column(modifier = Modifier.padding(12.dp)) {
                                     Text(
