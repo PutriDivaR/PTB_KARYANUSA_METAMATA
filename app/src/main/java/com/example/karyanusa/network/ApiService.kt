@@ -257,6 +257,13 @@ interface ApiService {
         @Path("kursus_id") kursusId: Int
     ): Call<EnrollmentCheckResponse>
 
+    @DELETE("api/delete-enrollment/{kursus_id}")
+    fun cancelEnrollment(
+        @Header("Authorization") token: String,
+        @Path("kursus_id") kursusId: Int
+    ): Call<ResponseBody>
+
+
 
     // --- Progress ---
     @POST("api/enroll/progress")
