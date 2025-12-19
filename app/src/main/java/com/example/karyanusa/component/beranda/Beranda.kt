@@ -1,6 +1,5 @@
 package com.example.karyanusa.component.beranda
 
-import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -32,98 +31,41 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import com.example.karyanusa.R
-import com.example.karyanusa.network.*
 import com.example.karyanusa.component.auth.LoginTokenManager
-import retrofit2.Call
-import retrofit2.Callback
-import retrofit2.Response
+import com.example.karyanusa.data.viewmodel.BerandaViewModel
 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BerandaPage(navController: NavController) {
+fun BerandaPage(
+    navController: NavController,
+    viewModel: BerandaViewModel = viewModel()
+) {
     val pinkMuda = Color(0xFFFFE4EC)
     val pinkTua = Color(0xFF4A0E24)
 
     val context = LocalContext.current
     val tokenManager = LoginTokenManager(context)
     val token = tokenManager.getToken()
+    val userId = tokenManager.getUserId()
     val userName = tokenManager.getUserName() ?: "User"
 
-    // State untuk data dari backend
-    var kursusList by remember { mutableStateOf<List<Kursus>>(emptyList()) }
-    var myKaryaList by remember { mutableStateOf<List<KaryaData>>(emptyList()) }
-    var userEnrollments by remember { mutableStateOf<List<EnrollmentData>>(emptyList()) }
-    var isLoadingKursus by remember { mutableStateOf(true) }
-    var isLoadingKarya by remember { mutableStateOf(true) }
-    var isLoadingEnrollments by remember { mutableStateOf(true) }
+    // Collect data dari ViewModel
+    val kursusList by viewModel.kursusList.collectAsState()
+    val enrollmentsList by viewModel.enrollmentsList.collectAsState()
+    val myKaryaList by viewModel.myKaryaList.collectAsState()
 
-    // Load data kursus
+    val isLoadingKursus by viewModel.isLoadingKursus.collectAsState()
+    val isLoadingEnrollments by viewModel.isLoadingEnrollments.collectAsState()
+    val isLoadingKarya by viewModel.isLoadingKarya.collectAsState()
+
+    // Load data saat pertama kali
     LaunchedEffect(Unit) {
-        RetrofitClient.instance.getCourses().enqueue(object : Callback<List<Kursus>> {
-            override fun onResponse(call: Call<List<Kursus>>, response: Response<List<Kursus>>) {
-                if (response.isSuccessful) {
-                    kursusList = response.body() ?: emptyList()
-                    Log.d("Beranda", "Kursus loaded: ${kursusList.size}")
-                }
-                isLoadingKursus = false
-            }
-
-            override fun onFailure(call: Call<List<Kursus>>, t: Throwable) {
-                Log.e("Beranda", "Error loading kursus: ${t.message}")
-                isLoadingKursus = false
-            }
-        })
-    }
-
-    // Load data my karya
-    LaunchedEffect(Unit) {
-        if (token != null) {
-            RetrofitClient.instance.getMyKarya("Bearer $token").enqueue(object : Callback<KaryaResponse> {
-                override fun onResponse(
-                    call: Call<KaryaResponse>,
-                    response: Response<KaryaResponse>
-                ) {
-                    if (response.isSuccessful && response.body()?.status == true) {
-                        myKaryaList = response.body()?.data ?: emptyList()
-                        Log.d("Beranda", "Karya loaded: ${myKaryaList.size}")
-                    }
-                    isLoadingKarya = false
-                }
-
-                override fun onFailure(call: Call<KaryaResponse>, t: Throwable) {
-                    Log.e("Beranda", "Error loading karya: ${t.message}")
-                    isLoadingKarya = false
-                }
-            })
-        } else {
-            isLoadingKarya = false
-        }
-    }
-
-    // Load user enrollments - cukup ambil data progress dari API
-    LaunchedEffect(Unit) {
-        if (token != null) {
-            RetrofitClient.instance.getEnrollments("Bearer $token").enqueue(object : Callback<List<EnrollmentData>> {
-                override fun onResponse(call: Call<List<EnrollmentData>>, response: Response<List<EnrollmentData>>) {
-                    if (response.isSuccessful) {
-                        userEnrollments = response.body() ?: emptyList()
-                        Log.d("Beranda", "Enrollments loaded: ${userEnrollments.size}")
-                    }
-                    isLoadingEnrollments = false
-                }
-
-                override fun onFailure(call: Call<List<EnrollmentData>>, t: Throwable) {
-                    Log.e("Beranda", "Error loading enrollments: ${t.message}")
-                    isLoadingEnrollments = false
-                }
-            })
-        } else {
-            isLoadingEnrollments = false
-        }
+        viewModel.loadAllData(token, userId)
     }
 
     Scaffold(
@@ -194,7 +136,7 @@ fun BerandaPage(navController: NavController) {
                 .verticalScroll(rememberScrollState())
         ) {
 
-            // 🔹 Header dengan nama user dari token
+            // Header dengan nama user
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -216,10 +158,10 @@ fun BerandaPage(navController: NavController) {
 
             Spacer(Modifier.height(16.dp))
 
-            // 🔹 FEATURED CLASS
+            // FEATURED CLASS
             SectionHeader(title = "FEATURED CLASS", onSeeAll = { navController.navigate("kursus") })
 
-            if (isLoadingKursus) {
+            if (isLoadingKursus && kursusList.isEmpty()) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -296,10 +238,10 @@ fun BerandaPage(navController: NavController) {
 
             Spacer(Modifier.height(20.dp))
 
-            // 🔹 MY CLASSES - Data real dari API enrollment
+            // MY CLASSES
             SectionHeader(title = "MY CLASSES", onSeeAll = { navController.navigate("profile") })
 
-            if (isLoadingEnrollments) {
+            if (isLoadingEnrollments && enrollmentsList.isEmpty()) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -317,7 +259,7 @@ fun BerandaPage(navController: NavController) {
                         .padding(vertical = 20.dp),
                     textAlign = TextAlign.Center
                 )
-            } else if (userEnrollments.isEmpty()) {
+            } else if (enrollmentsList.isEmpty()) {
                 Text(
                     text = "Anda belum mengambil kelas",
                     color = Color.Gray,
@@ -328,8 +270,7 @@ fun BerandaPage(navController: NavController) {
                 )
             } else {
                 Column(Modifier.padding(horizontal = 16.dp)) {
-                    userEnrollments.take(3).forEach { enrollment ->
-                        // Cari judul kursus dari kursusList
+                    enrollmentsList.take(3).forEach { enrollment ->
                         val kursus = kursusList.find { it.kursus_id == enrollment.kursus_id }
 
                         Card(
@@ -364,7 +305,6 @@ fun BerandaPage(navController: NavController) {
 
                                 Spacer(Modifier.height(8.dp))
 
-                                // Progress bar langsung dari enrollment.progress
                                 LinearProgressIndicator(
                                     progress = { enrollment.progress / 100f },
                                     modifier = Modifier
@@ -390,13 +330,13 @@ fun BerandaPage(navController: NavController) {
 
             Spacer(Modifier.height(20.dp))
 
-            // 🔹 MY GALLERY
+            // MY GALLERY
             SectionHeader(
                 title = "MY GALLERY",
                 onSeeAll = { navController.navigate("galeri") }
             )
 
-            if (isLoadingKarya) {
+            if (isLoadingKarya && myKaryaList.isEmpty()) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -437,7 +377,7 @@ fun BerandaPage(navController: NavController) {
                                 .fillMaxWidth()
                                 .aspectRatio(1f)
                                 .clickable {
-                                    // Bisa navigate ke detail jika perlu
+                                    // Navigate ke detail jika perlu
                                 },
                             colors = CardDefaults.cardColors(containerColor = Color.White),
                             elevation = CardDefaults.cardElevation(4.dp)
@@ -454,7 +394,6 @@ fun BerandaPage(navController: NavController) {
                                     contentScale = ContentScale.Crop
                                 )
 
-                                // Overlay judul di bagian bawah
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()

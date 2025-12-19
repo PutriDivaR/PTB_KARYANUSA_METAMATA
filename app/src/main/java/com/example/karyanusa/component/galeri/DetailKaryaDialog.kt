@@ -1,26 +1,31 @@
 package com.example.karyanusa.component.galeri
 
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.rememberAsyncImagePainter
-import com.example.karyanusa.network.KaryaData
-import com.example.karyanusa.network.RetrofitClient
-import com.example.karyanusa.network.ViewResponse
+import com.example.karyanusa.component.auth.LoginTokenManager
+import com.example.karyanusa.network.*
 import kotlinx.coroutines.delay
+import okhttp3.ResponseBody
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -30,15 +35,28 @@ fun DetailKaryaDialog(
     karya: KaryaData,
     onDismiss: () -> Unit
 ) {
-    var viewCounted by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val tokenManager = remember { LoginTokenManager(context) }
 
-    // 🔥 TIMER 5 DETIK untuk increment view
+    // ✅ State untuk View
+    var viewCounted by remember { mutableStateOf(false) }
+    var currentViews by remember { mutableIntStateOf(karya.views) }
+
+    // ✅ State untuk Like
+    var isLiked by remember { mutableStateOf(false) }
+    var likesCount by remember { mutableIntStateOf(karya.likes) }
+    var isLiking by remember { mutableStateOf(false) }
+
+    /**
+     * ✅ TIMER 5 DETIK untuk increment view
+     * Backend akan cek milestone (5, 10, 25, 50, 100)
+     */
     LaunchedEffect(karya.galeri_id) {
-        Log.d("DetailKarya", "Timer dimulai untuk karya ID: ${karya.galeri_id}")
-        delay(5000L) // 5 detik
+        Log.d("DetailKarya", "⏱️ Timer 5 detik dimulai untuk karya ID: ${karya.galeri_id}")
+        delay(5000L)
 
         if (!viewCounted) {
-            Log.d("DetailKarya", "5 detik berlalu, memanggil API increment view...")
+            Log.d("DetailKarya", "🔥 5 detik berlalu, increment view...")
 
             RetrofitClient.instance.incrementView(karya.galeri_id)
                 .enqueue(object : Callback<ViewResponse> {
@@ -47,24 +65,110 @@ fun DetailKaryaDialog(
                         response: Response<ViewResponse>
                     ) {
                         if (response.isSuccessful) {
-                            Log.d("DetailKarya", "✅ View berhasil ditambahkan! Total: ${response.body()?.views}")
+                            response.body()?.let { body ->
+                                currentViews = body.views
+                                Log.d("DetailKarya", "✅ View: ${body.views}")
+
+                                if (body.message.contains("milestone", ignoreCase = true)) {
+                                    Log.d("DetailKarya", "🎉 ${body.message}")
+                                }
+                            }
                             viewCounted = true
-                        } else {
-                            Log.e("DetailKarya", "❌ Response tidak sukses: ${response.code()}")
                         }
                     }
 
                     override fun onFailure(call: Call<ViewResponse>, t: Throwable) {
-                        Log.e("DetailKarya", "❌ API Error: ${t.message}")
+                        Log.e("DetailKarya", "❌ Error: ${t.message}")
                     }
                 })
         }
     }
 
+    /**
+     * ✅ Check apakah user sudah like karya ini
+     */
+    LaunchedEffect(karya.galeri_id) {
+        val token = tokenManager.getToken()
+        if (token != null) {
+            RetrofitClient.instance.checkLike("Bearer $token", karya.galeri_id)
+                .enqueue(object : Callback<LikeCheckResponse> {
+                    override fun onResponse(
+                        call: Call<LikeCheckResponse>,
+                        response: Response<LikeCheckResponse>
+                    ) {
+                        if (response.isSuccessful) {
+                            response.body()?.let {
+                                isLiked = it.is_liked
+                                likesCount = it.likes
+                                Log.d("CheckLike", "✅ isLiked: $isLiked, likes: $likesCount")
+                            }
+                        }
+                    }
+
+                    override fun onFailure(call: Call<LikeCheckResponse>, t: Throwable) {
+                        Log.e("CheckLike", "❌ Error: ${t.message}")
+                    }
+                })
+        }
+    }
+
+    /**
+     * ✅ Function Toggle Like - TANPA NOTIFIKASI (Backend sudah handle)
+     */
+    fun toggleLike() {
+        if (isLiking) return
+
+        isLiking = true
+        val token = tokenManager.getToken()
+
+        if (token == null) {
+            Toast.makeText(context, "Silakan login terlebih dahulu", Toast.LENGTH_SHORT).show()
+            isLiking = false
+            return
+        }
+
+        RetrofitClient.instance.toggleLike("Bearer $token", karya.galeri_id)
+            .enqueue(object : Callback<LikeResponse> {
+                override fun onResponse(
+                    call: Call<LikeResponse>,
+                    response: Response<LikeResponse>
+                ) {
+                    isLiking = false
+
+                    if (response.isSuccessful) {
+                        response.body()?.let {
+                            isLiked = it.is_liked
+                            likesCount = it.likes
+
+                            Log.d("ToggleLike", "✅ ${it.action}: likes = $likesCount")
+
+                            Toast.makeText(
+                                context,
+                                if (it.is_liked) "❤️ Liked!" else "Unlike",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    } else {
+                        Log.e("ToggleLike", "❌ Error: ${response.code()}")
+                        Toast.makeText(context, "Gagal like karya", Toast.LENGTH_SHORT).show()
+                    }
+                }
+
+                override fun onFailure(call: Call<LikeResponse>, t: Throwable) {
+                    isLiking = false
+                    Log.e("ToggleLike", "❌ Error: ${t.message}")
+                    Toast.makeText(context, "Gagal like: ${t.message}", Toast.LENGTH_SHORT).show()
+                }
+            })
+    }
+
+    /**
+     * ================= UI DIALOG =================
+     */
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.4f))
+            .background(Color.Black.copy(alpha = 0.45f))
             .clickable { onDismiss() },
         contentAlignment = Alignment.Center
     ) {
@@ -74,13 +178,13 @@ fun DetailKaryaDialog(
             modifier = Modifier
                 .fillMaxWidth(0.9f)
                 .wrapContentHeight()
-                .clickable { } // Prevent click through
+                .clickable { }
         ) {
             Column(
                 modifier = Modifier.padding(18.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // GAMBAR
+                // ===== GAMBAR =====
                 Image(
                     painter = rememberAsyncImagePainter(
                         model = "http://10.0.2.2:8000/storage/${karya.gambar}"
@@ -88,73 +192,130 @@ fun DetailKaryaDialog(
                     contentDescription = karya.judul,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(180.dp),
+                        .height(220.dp),
                     contentScale = ContentScale.Crop
                 )
 
-                Spacer(Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-                // JUDUL
+                // ===== JUDUL =====
                 Text(
                     text = karya.judul,
+                    fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF4A0E24),
-                    fontSize = 20.sp,
                     textAlign = TextAlign.Center
                 )
 
-                Spacer(Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
-                // DESKRIPSI
+                // ===== CAPTION =====
                 Text(
                     text = karya.caption,
-                    color = Color(0xFF5C5C5C),
                     fontSize = 14.sp,
+                    color = Color(0xFF5C5C5C),
                     lineHeight = 20.sp,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.padding(horizontal = 12.dp)
                 )
 
-                Spacer(Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-                // UPLOADER
-                Text(
-                    text = "Diupload oleh ${karya.uploader_name}",
-                    color = Color(0xFF7A4E5A),
-                    fontSize = 12.sp,
-                    modifier = Modifier
-                        .background(
-                            Color(0xFFFFE8EE),
-                            RoundedCornerShape(50)
+                // ===== LIKE & VIEWS ROW =====
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    // LIKE BUTTON
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .background(
+                                if (isLiked) Color(0xFFFFE8EE) else Color(0xFFF0F0F0),
+                                RoundedCornerShape(50)
+                            )
+                            .clickable(enabled = !isLiking) { toggleLike() }
+                            .padding(horizontal = 16.dp, vertical = 10.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                            contentDescription = "Like",
+                            tint = if (isLiked) Color(0xFF4A0E24) else Color.Gray,
+                            modifier = Modifier.size(20.dp)
                         )
-                        .padding(horizontal = 12.dp, vertical = 5.dp)
-                )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "$likesCount",
+                            fontSize = 14.sp,
+                            color = if (isLiked) Color(0xFF4A0E24) else Color.Gray,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
 
-                Spacer(Modifier.height(8.dp))
-
-                // TANGGAL UPLOAD
-                if (karya.tanggal_upload != null) {
-                    Text(
-                        text = "Tanggal: ${karya.tanggal_upload}",
-                        color = Color(0xFF8C5F6E),
-                        fontSize = 12.sp
-                    )
-                    Spacer(Modifier.height(12.dp))
+                    // VIEWS COUNTER
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .background(Color(0xFFF0F0F0), RoundedCornerShape(50))
+                            .padding(horizontal = 16.dp, vertical = 10.dp)
+                    ) {
+                        Text(
+                            text = "👁",
+                            fontSize = 16.sp
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "$currentViews",
+                            fontSize = 14.sp,
+                            color = Color.Gray,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
 
-                // TOMBOL TUTUP
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // ===== UPLOADER NAME =====
+                karya.uploader_name?.let {
+                    Text(
+                        text = "Diupload oleh $it",
+                        fontSize = 12.sp,
+                        color = Color(0xFF7A4E5A),
+                        modifier = Modifier
+                            .background(Color(0xFFFFE8EE), RoundedCornerShape(50))
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // ===== TANGGAL UPLOAD =====
+                karya.tanggal_upload?.let {
+                    Text(
+                        text = "📅 $it",
+                        fontSize = 12.sp,
+                        color = Color(0xFF8C5F6E)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                // ===== CLOSE BUTTON =====
                 Button(
                     onClick = onDismiss,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4A0E24)),
                     modifier = Modifier
-                        .fillMaxWidth(0.6f)
-                        .height(45.dp),
-                    shape = RoundedCornerShape(12.dp)
+                        .fillMaxWidth()
+                        .height(44.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF4A0E24)
+                    )
                 ) {
                     Text(
-                        "Tutup",
+                        text = "Tutup",
                         color = Color.White,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp
                     )
                 }
             }

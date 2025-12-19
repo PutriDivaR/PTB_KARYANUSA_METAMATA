@@ -93,5 +93,5 @@ dependencies {
     ksp("androidx.room:room-compiler:2.8.4")
     implementation("androidx.room:room-ktx:2.8.4")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.0")
-
+    implementation("com.google.accompanist:accompanist-swiperefresh:0.32.0")
 }

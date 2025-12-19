@@ -9,9 +9,6 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -20,7 +17,6 @@ import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.CameraAlt
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Person
@@ -39,14 +35,14 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.*
 import com.example.karyanusa.R
 import com.example.karyanusa.component.auth.LoginTokenManager
 import com.example.karyanusa.component.forum.ImageUtils
 import com.example.karyanusa.network.Kursus
 import com.example.karyanusa.network.RetrofitClient
 import android.util.Log
+import androidx.compose.material.icons.automirrored.filled.Logout
 import com.example.karyanusa.network.EnrollmentData
 import retrofit2.Call
 import retrofit2.Callback
@@ -74,7 +70,7 @@ fun ProfilePage(navController: NavController) {
 
     var profileImageUri by remember { mutableStateOf<Uri?>(null) }
     var showPhotoOptions by remember { mutableStateOf(false) }
-    var showConfirmDialog by remember { mutableStateOf(false) }
+    var showLogoutDialog by remember { mutableStateOf(false) }
     var cameraImageUri by remember { mutableStateOf<Uri?>(null) }
 
     // 🔥 STATE UNTUK KURSUS USER
@@ -216,10 +212,30 @@ fun ProfilePage(navController: NavController) {
         }
     }
 
+    // ============================================================
+    // 🔥 LOGOUT FUNCTION
+    // ============================================================
+    fun handleLogout() {
+        try {
+            // Tampilkan pesan
+            Toast.makeText(context, "Berhasil logout", Toast.LENGTH_SHORT).show()
+
+            // Navigate ke login dan clear back stack
+            navController.navigate("login") {
+                popUpTo(0) { inclusive = true }
+            }
+
+            Log.d("ProfilePage", "✅ Logout berhasil")
+        } catch (e: Exception) {
+            Log.e("ProfilePage", "❌ Error saat logout", e)
+            Toast.makeText(context, "Gagal logout", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     // Load pertama kali
     LaunchedEffect(Unit) {
         loadProfile()
-        loadUserCourses() // 🔥 Load kursus user
+        loadUserCourses()
     }
 
     // ============================================================
@@ -308,8 +324,32 @@ fun ProfilePage(navController: NavController) {
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
 
-                    // Header
-                    Text("Profile", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Color(0xFF4A0E24))
+                    // Header dengan tombol logout
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Spacer(Modifier.width(48.dp)) // Balance untuk icon logout
+
+                        Text(
+                            "Profile",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 20.sp,
+                            color = Color(0xFF4A0E24)
+                        )
+
+                        // 🔥 TOMBOL LOGOUT
+                        IconButton(
+                            onClick = { showLogoutDialog = true }
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.Logout,
+                                contentDescription = "Logout",
+                                tint = Color(0xFF4A0E24)
+                            )
+                        }
+                    }
 
                     Spacer(Modifier.height(16.dp))
 
@@ -514,6 +554,57 @@ fun ProfilePage(navController: NavController) {
             Spacer(Modifier.height(20.dp))
         }
     }
+
+    // ============================================================
+    // 🔥 DIALOG KONFIRMASI LOGOUT
+    // ============================================================
+    if (showLogoutDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogoutDialog = false },
+            icon = {
+                Icon(
+                    Icons.AutoMirrored.Filled.Logout,
+                    contentDescription = null,
+                    tint = Color(0xFF4A0E24)
+                )
+            },
+            title = {
+                Text(
+                    "Konfirmasi Logout",
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text("Apakah Anda yakin ingin keluar dari akun ini?")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showLogoutDialog = false
+                        handleLogout()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF4A0E24)
+                    )
+                ) {
+                    Text("Logout", color = Color.White)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = { showLogoutDialog = false },
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = Color(0xFF4A0E24)
+                    )
+                ) {
+                    Text("Batal")
+                }
+            },
+            containerColor = Color.White
+        )
+    }
+
+    // Dialog Pilihan Foto
     if (showPhotoOptions) {
         AlertDialog(
             onDismissRequest = { showPhotoOptions = false },
@@ -547,7 +638,7 @@ fun ProfilePage(navController: NavController) {
 
 // ============================================================
 // COMPONENT KECIL
-// =============================================
+// ============================================================
 @Composable
 fun ProfileRow(label: String, value: String) {
     Row(
