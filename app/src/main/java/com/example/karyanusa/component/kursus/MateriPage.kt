@@ -279,7 +279,6 @@ fun MateriPage(navController: NavController, kursusId: Int) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
                 .background(Color(0xFFFFF5F7))
         ) {
             when {
@@ -289,7 +288,7 @@ fun MateriPage(navController: NavController, kursusId: Int) {
                         modifier = Modifier
                             .fillMaxSize()
                             .verticalScroll(rememberScrollState())
-                            .padding(bottom = 92.dp)
+                            .padding(bottom = innerPadding.calculateBottomPadding())
                     ) {
 
                         // Header
@@ -303,8 +302,14 @@ fun MateriPage(navController: NavController, kursusId: Int) {
                                 contentScale = ContentScale.Crop
                             )
 
-                            IconButton(onClick = { navController.popBackStack() }) {
-                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                            IconButton(
+                                onClick = { navController.popBackStack() },
+                                modifier = Modifier
+                                    .padding(start = 16.dp, top = 16.dp)
+                                    .statusBarsPadding()
+                                    .background(Color.White.copy(alpha = 0.5f), CircleShape)
+                            ) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.Black)
                             }
 
                             Text(
@@ -440,6 +445,7 @@ fun MateriPage(navController: NavController, kursusId: Int) {
                     val scopeLocal = rememberCoroutineScope()
                     Box(modifier = Modifier
                         .fillMaxWidth()
+                        .padding(bottom = innerPadding.calculateBottomPadding())
                         .padding(horizontal = 16.dp, vertical = 12.dp)
                         .align(Alignment.BottomCenter)
                     ) {

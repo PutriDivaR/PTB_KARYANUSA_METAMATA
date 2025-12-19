@@ -5,9 +5,11 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -15,6 +17,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.AddAPhoto
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Share
@@ -64,10 +67,13 @@ fun DetailPage(navController: NavController, kursusId: Int, notifId: Int? = null
     var showShareSheet by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
     var searchResults by remember { mutableStateOf<List<UserData>>(emptyList()) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
 
     val context = LocalContext.current
     val tokenManager = remember { LoginTokenManager(context) }
     val token = tokenManager.getToken()
+
 
 
     // OAD DATA & SYNC
@@ -185,12 +191,11 @@ fun DetailPage(navController: NavController, kursusId: Int, notifId: Int? = null
             }
         }
     ) { innerPadding ->
-        Box(modifier = Modifier.fillMaxSize().padding(innerPadding).background(Color(0xFFFFF5F7))) {
+        Box(modifier = Modifier.fillMaxSize().background(Color(0xFFFFF5F7))) {
             if (kursus == null) {
-                // Tampilkan loading jika data belum ada di Room
                 CircularProgressIndicator(Modifier.align(Alignment.Center))
             } else {
-                Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 92.dp)) {
+                Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = innerPadding.calculateBottomPadding() + 20.dp)) {
                     // Header Image
                     Box {
                         Image(
@@ -198,17 +203,32 @@ fun DetailPage(navController: NavController, kursusId: Int, notifId: Int? = null
                                 ImageRequest.Builder(LocalContext.current).data(kursus.thumbnail).crossfade(true).error(R.drawable.tessampul).build()
                             ),
                             contentDescription = kursus.judul,
-                            modifier = Modifier.fillMaxWidth().height(240.dp),
+                            modifier = Modifier.fillMaxWidth().height(280.dp),
                             contentScale = ContentScale.Crop
                         )
-                        IconButton(onClick = { navController.popBackStack() }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.White)
-                        }
-                        IconButton(onClick = {
-                            showShareSheet = true
-                            loadAllUsers() },
-                            modifier = Modifier.align(Alignment.TopEnd).padding(8.dp)) {
-                            Icon(Icons.Default.Share, "Share", tint = Color.White)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .statusBarsPadding()
+                                .padding(horizontal = 8.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            IconButton(
+                                onClick = { navController.popBackStack() },
+                                modifier = Modifier.background(Color.Black.copy(alpha = 0.3f), CircleShape)
+                            ) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.White)
+                            }
+
+                            IconButton(
+                                onClick = {
+                                    showShareSheet = true
+                                    loadAllUsers()
+                                },
+                                modifier = Modifier.background(Color.Black.copy(alpha = 0.3f), CircleShape)
+                            ) {
+                                Icon(Icons.Default.Share, "Share", tint = Color.White)
+                            }
                         }
                         Text(
                             text = kursus.judul,
@@ -261,27 +281,52 @@ fun DetailPage(navController: NavController, kursusId: Int, notifId: Int? = null
             }
 
             // Button Action
-            Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp).align(Alignment.BottomCenter)) {
-                Button(
-                    onClick = {
-                        when (enrollmentStatus) {
-                            "none" -> enrollToCourse(kursusId, navController)
-                            "ongoing", "completed" -> navController.navigate("materi/$kursusId")
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7A3E48)),
-                    modifier = Modifier.fillMaxWidth().height(48.dp),
-                    shape = RoundedCornerShape(12.dp)
+            Box(modifier = Modifier.fillMaxWidth().padding(bottom = innerPadding.calculateBottomPadding()).padding(horizontal = 16.dp, vertical = 12.dp).align(Alignment.BottomCenter)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        when (enrollmentStatus) {
-                            "none" -> "Ikuti Kelas"
-                            "ongoing" -> "Lanjutkan Kelas"
-                            "completed" -> "Lihat Sertifikat"
-                            else -> "Memuat..."
+                    if (enrollmentStatus == "ongoing" || enrollmentStatus == "completed") {
+                        OutlinedButton(
+                            onClick = { showDeleteDialog = true },
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = Color.Red,
+                                containerColor = Color.White
+                            ),
+                            modifier = Modifier
+                                .width(56.dp)
+                                .height(48.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            Icon(Icons.Default.Delete, contentDescription = "Batalkan Kursus")
+                        }
+                    }
+
+                    Button(
+                        onClick = {
+                            when (enrollmentStatus) {
+                                "none" -> enrollToCourse(kursusId, navController)
+                                "ongoing", "completed" -> navController.navigate("materi/$kursusId")
+                            }
                         },
-                        color = Color.White
-                    )
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7A3E48)),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(
+                            when (enrollmentStatus) {
+                                "none" -> "Ikuti Kelas"
+                                "ongoing" -> "Lanjutkan Kelas"
+                                "completed" -> "Lihat Sertifikat"
+                                else -> "Memuat..."
+                            },
+                            color = Color.White
+                        )
+                    }
                 }
             }
         }
@@ -312,9 +357,32 @@ fun DetailPage(navController: NavController, kursusId: Int, notifId: Int? = null
             }
         }
     }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteDialog = false
+                    cancelEnrollment(kursusId, navController)
+                }) {
+                    Text("Ya, Hapus", color = Color.Red)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Batal")
+                }
+            },
+            title = { Text("Batalkan Kursus?") },
+            text = {
+                Text("Progress belajar akan dihapus dan tidak bisa dikembalikan.")
+            }
+        )
+    }
+
 }
 
-// Helper function for enrollment action
 fun enrollToCourse(kursusId: Int, navController: NavController) {
     val context = navController.context
     val tokenManager = LoginTokenManager(context)
@@ -336,6 +404,28 @@ fun enrollToCourse(kursusId: Int, navController: NavController) {
                     Toast.makeText(context, "Gagal mendaftar", Toast.LENGTH_SHORT).show()
                 }
             }
+            override fun onFailure(call: Call<ResponseBody>, t: Throwable) {
+                Toast.makeText(context, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+            }
+        })
+}
+
+fun cancelEnrollment(kursusId: Int, navController: NavController) {
+    val context = navController.context
+    val token = LoginTokenManager(context).getToken() ?: return
+
+    RetrofitClient.instance
+        .cancelEnrollment("Bearer $token", kursusId)
+        .enqueue(object : Callback<ResponseBody> {
+            override fun onResponse(call: Call<ResponseBody>, response: Response<ResponseBody>) {
+                if (response.isSuccessful) {
+                    Toast.makeText(context, "Kursus dibatalkan", Toast.LENGTH_SHORT).show()
+                    navController.popBackStack()
+                } else {
+                    Toast.makeText(context, "Gagal membatalkan", Toast.LENGTH_SHORT).show()
+                }
+            }
+
             override fun onFailure(call: Call<ResponseBody>, t: Throwable) {
                 Toast.makeText(context, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
             }
