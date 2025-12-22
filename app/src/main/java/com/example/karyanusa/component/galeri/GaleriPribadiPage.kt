@@ -24,8 +24,6 @@ import androidx.navigation.NavController
 import com.example.karyanusa.component.auth.LoginTokenManager
 import com.example.karyanusa.data.local.entity.KaryaEntity
 import com.example.karyanusa.data.viewmodel.GaleriViewModel
-import com.google.accompanist.swiperefresh.SwipeRefresh
-import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
 
 @Composable
 fun GaleriPribadiPage(
@@ -61,7 +59,7 @@ fun GaleriPribadiPage(
         return
     }
 
-    // Load data pertama kali
+    // Load data setiap kali halaman dibuka (seperti DetailPage)
     LaunchedEffect(Unit) {
         viewModel.loadMyKarya(token, userId)
     }
@@ -81,13 +79,8 @@ fun GaleriPribadiPage(
             showDialog = false
             karyaDihapus = null
             viewModel.resetDeleteSuccess()
-            // Refresh data setelah delete
-            viewModel.refreshKarya(token, userId)
         }
     }
-
-    // SwipeRefresh state
-    val swipeRefreshState = rememberSwipeRefreshState(isRefreshing = isLoading)
 
     Column(
         modifier = Modifier
@@ -107,64 +100,58 @@ fun GaleriPribadiPage(
             Text("Upload Karya Baru", color = Color.White)
         }
 
-        // SwipeRefresh untuk pull to refresh
-        SwipeRefresh(
-            state = swipeRefreshState,
-            onRefresh = { viewModel.refreshKarya(token, userId) },
-            modifier = Modifier.weight(1f)
-        ) {
-            when {
-                // Loading pertama kali (data kosong)
-                isLoading && karyaList.isEmpty() -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(color = pinkTua)
+        // Content
+        when {
+            // Loading pertama kali
+            isLoading -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = pinkTua)
+                }
+            }
+
+            // Data kosong
+            karyaList.isEmpty() -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            "Belum ada karya Anda",
+                            color = Color.Gray,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "Mulai unggah karya pertama Anda!",
+                            color = Color.Gray,
+                            fontSize = 12.sp
+                        )
                     }
                 }
+            }
 
-                // Data kosong (bukan loading)
-                karyaList.isEmpty() -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                "Belum ada karya Anda",
-                                color = Color.Gray,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Spacer(Modifier.height(8.dp))
-                            Text(
-                                "Mulai unggah karya pertama Anda!",
-                                color = Color.Gray,
-                                fontSize = 12.sp
-                            )
-                        }
-                    }
-                }
-
-                // Ada data
-                else -> {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(8.dp)
-                    ) {
-                        items(karyaList, key = { it.galeri_id }) { karya ->
-                            KaryaCard(
-                                karya = karya,
-                                pinkTua = pinkTua,
-                                onEdit = {
-                                    navController.navigate("edit/${karya.galeri_id}")
-                                },
-                                onDelete = {
-                                    karyaDihapus = karya
-                                    showDialog = true
-                                }
-                            )
-                        }
+            // Ada data
+            else -> {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(8.dp)
+                ) {
+                    items(karyaList, key = { it.galeri_id }) { karya ->
+                        KaryaCard(
+                            karya = karya,
+                            pinkTua = pinkTua,
+                            onEdit = {
+                                navController.navigate("edit/${karya.galeri_id}")
+                            },
+                            onDelete = {
+                                karyaDihapus = karya
+                                showDialog = true
+                            }
+                        )
                     }
                 }
             }
@@ -178,7 +165,7 @@ fun GaleriPribadiPage(
             isDeleting = isDeleting,
             pinkTua = pinkTua,
             onConfirm = {
-                viewModel.deleteKarya(token, karyaDihapus!!.galeri_id)
+                viewModel.deleteKarya(token, karyaDihapus!!.galeri_id, userId)
             },
             onDismiss = {
                 if (!isDeleting) {

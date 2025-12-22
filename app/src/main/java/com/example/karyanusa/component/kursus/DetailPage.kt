@@ -125,8 +125,8 @@ fun DetailPage(navController: NavController, kursusId: Int, notifId: Int? = null
             "from_user" to currentIdInt,
             "to_user" to toUser,
             "type" to "share_kursus",
-            "title" to "Kursus Dibagikan",
-            "message" to "$currentUsername membagikan kursus: ${kursus.judul}",
+            "title" to "📚 Kursus Dibagikan",
+            "message" to "💡 $currentUsername membagikan kursus: ${kursus.judul}",
             "related_id" to kursusId
         )
 

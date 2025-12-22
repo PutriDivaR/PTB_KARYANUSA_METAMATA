@@ -5,6 +5,7 @@ import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -23,32 +24,32 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.rememberAsyncImagePainter
 import com.example.karyanusa.component.auth.LoginTokenManager
+import com.example.karyanusa.data.local.entity.KaryaEntity
 import com.example.karyanusa.network.*
 import kotlinx.coroutines.delay
-import okhttp3.ResponseBody
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
 
 @Composable
 fun DetailKaryaDialog(
-    karya: KaryaData,
+    karya: KaryaEntity,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
     val tokenManager = remember { LoginTokenManager(context) }
 
-    // ✅ State untuk View
+    // State untuk View
     var viewCounted by remember { mutableStateOf(false) }
     var currentViews by remember { mutableIntStateOf(karya.views) }
 
-    // ✅ State untuk Like
+    // State untuk Like
     var isLiked by remember { mutableStateOf(false) }
     var likesCount by remember { mutableIntStateOf(karya.likes) }
     var isLiking by remember { mutableStateOf(false) }
 
     /**
-     * ✅ TIMER 5 DETIK untuk increment view
+     * TIMER 5 DETIK untuk increment view
      * Backend akan cek milestone (5, 10, 25, 50, 100)
      */
     LaunchedEffect(karya.galeri_id) {
@@ -85,12 +86,12 @@ fun DetailKaryaDialog(
     }
 
     /**
-     * ✅ Check apakah user sudah like karya ini
+     * Check apakah user sudah like karya ini
      */
     LaunchedEffect(karya.galeri_id) {
-        val token = tokenManager.getToken()
+        val token = tokenManager.getBearerToken()
         if (token != null) {
-            RetrofitClient.instance.checkLike("Bearer $token", karya.galeri_id)
+            RetrofitClient.instance.checkLike(token, karya.galeri_id)
                 .enqueue(object : Callback<LikeCheckResponse> {
                     override fun onResponse(
                         call: Call<LikeCheckResponse>,
@@ -113,13 +114,13 @@ fun DetailKaryaDialog(
     }
 
     /**
-     * ✅ Function Toggle Like - TANPA NOTIFIKASI (Backend sudah handle)
+     * Function Toggle Like - TANPA NOTIFIKASI (Backend sudah handle)
      */
     fun toggleLike() {
         if (isLiking) return
 
         isLiking = true
-        val token = tokenManager.getToken()
+        val token = tokenManager.getBearerToken()
 
         if (token == null) {
             Toast.makeText(context, "Silakan login terlebih dahulu", Toast.LENGTH_SHORT).show()
@@ -127,7 +128,7 @@ fun DetailKaryaDialog(
             return
         }
 
-        RetrofitClient.instance.toggleLike("Bearer $token", karya.galeri_id)
+        RetrofitClient.instance.toggleLike(token, karya.galeri_id)
             .enqueue(object : Callback<LikeResponse> {
                 override fun onResponse(
                     call: Call<LikeResponse>,
@@ -163,13 +164,16 @@ fun DetailKaryaDialog(
     }
 
     /**
-     * ================= UI DIALOG =================
+     * UI DIALOG - FIXED: Clickable hierarchy agar button bisa diklik
      */
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black.copy(alpha = 0.45f))
-            .clickable { onDismiss() },
+            .clickable(
+                indication = null,
+                interactionSource = remember { MutableInteractionSource() }
+            ) { onDismiss() },
         contentAlignment = Alignment.Center
     ) {
         Card(
@@ -178,13 +182,16 @@ fun DetailKaryaDialog(
             modifier = Modifier
                 .fillMaxWidth(0.9f)
                 .wrapContentHeight()
-                .clickable { }
+                .clickable(
+                    indication = null,
+                    interactionSource = remember { MutableInteractionSource() }
+                ) { /* Block propagation to background */ }
         ) {
             Column(
                 modifier = Modifier.padding(18.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // ===== GAMBAR =====
+                // GAMBAR
                 Image(
                     painter = rememberAsyncImagePainter(
                         model = "http://10.0.2.2:8000/storage/${karya.gambar}"
@@ -198,7 +205,7 @@ fun DetailKaryaDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // ===== JUDUL =====
+                // JUDUL
                 Text(
                     text = karya.judul,
                     fontSize = 20.sp,
@@ -209,7 +216,7 @@ fun DetailKaryaDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // ===== CAPTION =====
+                // CAPTION
                 Text(
                     text = karya.caption,
                     fontSize = 14.sp,
@@ -221,61 +228,76 @@ fun DetailKaryaDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // ===== LIKE & VIEWS ROW =====
+                // LIKE & VIEWS ROW
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
                     // LIKE BUTTON
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
+                    Surface(
                         modifier = Modifier
-                            .background(
-                                if (isLiked) Color(0xFFFFE8EE) else Color(0xFFF0F0F0),
-                                RoundedCornerShape(50)
-                            )
-                            .clickable(enabled = !isLiking) { toggleLike() }
-                            .padding(horizontal = 16.dp, vertical = 10.dp)
+                            .clickable(enabled = !isLiking) {
+                                Log.d("DetailKarya", "🔘 Like button clicked!")
+                                toggleLike()
+                            },
+                        shape = RoundedCornerShape(50),
+                        color = if (isLiked) Color(0xFFFFE8EE) else Color(0xFFF0F0F0)
                     ) {
-                        Icon(
-                            imageVector = if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                            contentDescription = "Like",
-                            tint = if (isLiked) Color(0xFF4A0E24) else Color.Gray,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "$likesCount",
-                            fontSize = 14.sp,
-                            color = if (isLiked) Color(0xFF4A0E24) else Color.Gray,
-                            fontWeight = FontWeight.Medium
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                        ) {
+                            if (isLiking) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp,
+                                    color = Color(0xFF4A0E24)
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                    contentDescription = "Like",
+                                    tint = if (isLiked) Color(0xFF4A0E24) else Color.Gray,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "$likesCount",
+                                fontSize = 14.sp,
+                                color = if (isLiked) Color(0xFF4A0E24) else Color.Gray,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
                     }
 
                     // VIEWS COUNTER
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .background(Color(0xFFF0F0F0), RoundedCornerShape(50))
-                            .padding(horizontal = 16.dp, vertical = 10.dp)
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = Color(0xFFF0F0F0)
                     ) {
-                        Text(
-                            text = "👁",
-                            fontSize = 16.sp
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "$currentViews",
-                            fontSize = 14.sp,
-                            color = Color.Gray,
-                            fontWeight = FontWeight.Medium
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                        ) {
+                            Text(
+                                text = "👁",
+                                fontSize = 16.sp
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "$currentViews",
+                                fontSize = 14.sp,
+                                color = Color.Gray,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
                     }
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // ===== UPLOADER NAME =====
+                // UPLOADER NAME
                 karya.uploader_name?.let {
                     Text(
                         text = "Diupload oleh $it",
@@ -289,7 +311,7 @@ fun DetailKaryaDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // ===== TANGGAL UPLOAD =====
+                // TANGGAL UPLOAD
                 karya.tanggal_upload?.let {
                     Text(
                         text = "📅 $it",
@@ -300,9 +322,12 @@ fun DetailKaryaDialog(
 
                 Spacer(modifier = Modifier.height(18.dp))
 
-                // ===== CLOSE BUTTON =====
+                // CLOSE BUTTON
                 Button(
-                    onClick = onDismiss,
+                    onClick = {
+                        Log.d("DetailKarya", "🔘 Close button clicked!")
+                        onDismiss()
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(44.dp),

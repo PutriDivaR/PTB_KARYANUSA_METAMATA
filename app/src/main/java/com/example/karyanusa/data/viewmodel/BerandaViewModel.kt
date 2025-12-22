@@ -68,14 +68,17 @@ class BerandaViewModel(application: Application) : AndroidViewModel(application)
             _isLoadingEnrollments.value = true
             try {
                 enrollmentRepository.syncEnrollments(token, userId)
-                // Observe data dari Room
+
+                // Ambil data sekali saja, jangan collect terus-menerus
                 enrollmentRepository.getEnrollments(userId)
+                    .take(1) // Ambil emisi pertama saja
                     .collect { enrollments ->
                         _enrollmentsList.value = enrollments
                         Log.d("BerandaVM", "Enrollments updated: ${enrollments.size}")
                     }
             } catch (e: Exception) {
                 Log.e("BerandaVM", "Error syncing enrollments: ${e.message}")
+                _enrollmentsList.value = emptyList() // Set empty jika error
             } finally {
                 _isLoadingEnrollments.value = false
             }
@@ -87,14 +90,17 @@ class BerandaViewModel(application: Application) : AndroidViewModel(application)
             _isLoadingKarya.value = true
             try {
                 karyaRepository.syncMyKarya(token, userId)
-                // Observe data dari Room
+
+                // Ambil data sekali saja, jangan collect terus-menerus
                 karyaRepository.getMyKarya(userId)
+                    .take(1) // Ambil emisi pertama saja
                     .collect { karya ->
                         _myKaryaList.value = karya
                         Log.d("BerandaVM", "My karya updated: ${karya.size}")
                     }
             } catch (e: Exception) {
                 Log.e("BerandaVM", "Error syncing karya: ${e.message}")
+                _myKaryaList.value = emptyList() // Set empty jika error
             } finally {
                 _isLoadingKarya.value = false
             }
