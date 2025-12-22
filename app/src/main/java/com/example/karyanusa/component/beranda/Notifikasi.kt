@@ -120,7 +120,7 @@ fun NotifikasiPage(navController: NavController) {
                     IconButton(onClick = { navController.navigate("beranda") }) {
                         Icon(Icons.Default.Home, contentDescription = "Home", tint = pinkTua)
                     }
-                    IconButton(onClick = { navController.navigate("chat") }) {
+                    IconButton(onClick = { navController.navigate("forum") }) {
                         Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "Chat", tint = pinkTua)
                     }
                     IconButton(onClick = { navController.navigate("kursus") }) {

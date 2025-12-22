@@ -367,22 +367,22 @@ fun MateriPage(navController: NavController, kursusId: Int) {
                                     ) {
                                         AndroidView(
                                             factory = { ctx ->
-                                                val exo = ExoPlayer.Builder(ctx).build().apply {
+                                                val player = ExoPlayer.Builder(ctx).build().apply {
                                                     setMediaItem(MediaItem.fromUri(materi.video ?: ""))
                                                     prepare()
-                                                    playWhenReady = false
                                                 }
+
                                                 PlayerView(ctx).apply {
-                                                    player = exo
+                                                    this.player = player
                                                     useController = true
-                                                    layoutParams = android.view.ViewGroup.LayoutParams(
-                                                        android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                                                        android.view.ViewGroup.LayoutParams.MATCH_PARENT
-                                                    )
                                                 }
+                                            },
+                                            update = { view ->
+                                                view.player?.playWhenReady = false
                                             },
                                             modifier = Modifier.fillMaxSize()
                                         )
+
 
                                         // fullscreen button
                                         IconButton(

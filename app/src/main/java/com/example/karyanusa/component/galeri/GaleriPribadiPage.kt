@@ -11,6 +11,8 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,8 +26,6 @@ import androidx.navigation.NavController
 import com.example.karyanusa.component.auth.LoginTokenManager
 import com.example.karyanusa.data.local.entity.KaryaEntity
 import com.example.karyanusa.data.viewmodel.GaleriViewModel
-import com.google.accompanist.swiperefresh.SwipeRefresh
-import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
 
 @Composable
 fun GaleriPribadiPage(
@@ -49,6 +49,8 @@ fun GaleriPribadiPage(
 
     val pinkTua = Color(0xFF4A0E24)
     val background = Color(0xFFFFF5F7)
+
+    val refreshState = rememberPullToRefreshState()
 
     // Cek token dulu
     if (token == null || userId == null) {
@@ -86,8 +88,6 @@ fun GaleriPribadiPage(
         }
     }
 
-    // SwipeRefresh state
-    val swipeRefreshState = rememberSwipeRefreshState(isRefreshing = isLoading)
 
     Column(
         modifier = Modifier
@@ -108,9 +108,10 @@ fun GaleriPribadiPage(
         }
 
         // SwipeRefresh untuk pull to refresh
-        SwipeRefresh(
-            state = swipeRefreshState,
+        PullToRefreshBox(
+            isRefreshing = isLoading,
             onRefresh = { viewModel.refreshKarya(token, userId) },
+            state = refreshState,
             modifier = Modifier.weight(1f)
         ) {
             when {

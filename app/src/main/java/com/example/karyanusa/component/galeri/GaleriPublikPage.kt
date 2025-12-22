@@ -11,6 +11,8 @@ import androidx.compose.material.icons.filled.BrokenImage
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,8 +27,6 @@ import androidx.navigation.NavController
 import coil.compose.SubcomposeAsyncImage
 import com.example.karyanusa.data.local.entity.KaryaEntity
 import com.example.karyanusa.data.viewmodel.GaleriPublikViewModel
-import com.google.accompanist.swiperefresh.SwipeRefresh
-import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
 
 @Composable
 fun GaleriPublikPage(
@@ -42,6 +42,7 @@ fun GaleriPublikPage(
     val errorMessage by viewModel.errorMessage.collectAsState()
 
     var selectedItem by remember { mutableStateOf<KaryaEntity?>(null) }
+    val refreshState = rememberPullToRefreshState()
 
     // Load data pertama kali
     LaunchedEffect(Unit) {
@@ -55,9 +56,6 @@ fun GaleriPublikPage(
             viewModel.clearError()
         }
     }
-
-    // SwipeRefresh state
-    val swipeRefreshState = rememberSwipeRefreshState(isRefreshing = isLoading)
 
     Box(
         modifier = Modifier
@@ -81,9 +79,10 @@ fun GaleriPublikPage(
             )
 
             // SwipeRefresh untuk pull to refresh
-            SwipeRefresh(
-                state = swipeRefreshState,
+            PullToRefreshBox(
+                isRefreshing = isLoading,
                 onRefresh = { viewModel.refreshKarya() },
+                state = refreshState,
                 modifier = Modifier.weight(1f)
             ) {
                 when {
