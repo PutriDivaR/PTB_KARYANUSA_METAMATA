@@ -28,7 +28,8 @@ data class LoginResponse(
     val message: String,
     val token: String?,
     val user_id: String?,
-    val nama: String?
+    val nama: String?,
+    val username: String?
 )
 
 data class RegisterRequest(
@@ -46,7 +47,8 @@ data class RegisterResponse(
 data class UserData(
     val user_id: Int,
     val nama: String,
-    val username: String
+    val username: String,
+    val foto_profile: String? = null
 )
 
 
@@ -131,9 +133,10 @@ data class MateriCompletedResponse(
 data class ForumPertanyaanResponse(
     val pertanyaan_id: Int,
     val user_id: Int,
-    val image_forum: String?,
+    val image_forum: List<String>?,
     val isi: String,
     val tanggal: String,
+    val updated_at: String?,
     val user: UserData?,
     val jawaban: List<ForumJawabanResponse>?
 )
@@ -145,7 +148,9 @@ data class ForumJawabanResponse(
     val image_jawaban: String?,
     val isi: String,
     val tanggal: String,
-    val user: UserData?
+    val updated_at: String?,
+    val user: UserData?,
+    val notification_sent: Boolean? = false
 )
 
 // Notifikasi Class
@@ -173,6 +178,20 @@ data class LikeCheckResponse(
     val status: Boolean,
     val is_liked: Boolean,
     val likes: Int
+)
+
+data class ProfileResponse(
+    val status: Boolean,
+    val message: String? = null,
+    val data: ProfileData? = null
+)
+
+data class ProfileData(
+    val user_id: Int,
+    val nama: String,
+    val username: String,
+    val bio: String?,
+    val foto_profile: String?
 )
 
 
@@ -309,7 +328,7 @@ interface ApiService {
     fun tambahPertanyaan(
         @Header("Authorization") token: String,
         @Part("isi") isi: RequestBody,
-        @Part image_forum: MultipartBody.Part? = null
+        @Part image_forum: List<MultipartBody.Part>
     ): Call<ForumPertanyaanResponse>
 
     // Tambah jawaban
@@ -322,18 +341,18 @@ interface ApiService {
         @Part image_jawaban: MultipartBody.Part? = null
     ): Call<ForumJawabanResponse>
 
-    @GET("profile/{id}")
+    @GET("api/profile/{id}")
     fun getProfile(
-        @Header("Authorization") token: String,  // Sudah format "Bearer xxx"
+        @Header("Authorization") token: String,
         @Path("id") userId: Int
-    ): Call<UserData>
+    ): Call<ProfileResponse>
 
-    @PUT("profile/{id}")
+    @PUT("api/profile/{id}")
     fun updateProfile(
         @Header("Authorization") token: String,
         @Path("id") userId: Int,
         @Body body: Map<String, String>
-    ): Call<UserData>
+    ): Call<ProfileResponse>
 
     @POST("api/notifikasi/send")
     fun sendNotification(
@@ -346,14 +365,13 @@ interface ApiService {
         @Header("Authorization") token: String,
     ): Call<List<UserData>>
 
-    // ✅ Update Pertanyaan
     @Multipart
     @POST("api/pertanyaan/{id}/update")
-    fun updatePertanyaan(
+    fun updatePertanyaanWithPartMap(
         @Header("Authorization") token: String,
         @Path("id") id: Int,
-        @Part("isi") isi: RequestBody,
-        @Part image_forum: MultipartBody.Part? = null
+        @PartMap data: Map<String, @JvmSuppressWildcards RequestBody>,
+        @Part image_forum: List<MultipartBody.Part>?
     ): Call<ForumPertanyaanResponse>
 
     // ✅ Delete Pertanyaan
@@ -404,5 +422,13 @@ interface ApiService {
         @Header("Authorization") token: String,
         @Path("id") notifId: Int
     ): Call<ResponseBody>
+
+    @Multipart
+    @POST("api/profile/{id}/update-photo")
+    fun uploadProfilePhoto(
+        @Header("Authorization") token: String,
+        @Path("id") userId: Int,
+        @Part foto_profile: MultipartBody.Part
+    ): Call<ProfileResponse>
 }
 

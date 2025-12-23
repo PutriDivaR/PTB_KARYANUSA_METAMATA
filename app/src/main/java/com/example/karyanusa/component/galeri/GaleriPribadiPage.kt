@@ -11,8 +11,6 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.*
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,8 +48,6 @@ fun GaleriPribadiPage(
     val pinkTua = Color(0xFF4A0E24)
     val background = Color(0xFFFFF5F7)
 
-    val refreshState = rememberPullToRefreshState()
-
     // Cek token dulu
     if (token == null || userId == null) {
         LaunchedEffect(Unit) {
@@ -63,7 +59,7 @@ fun GaleriPribadiPage(
         return
     }
 
-    // Load data pertama kali
+    // Load data setiap kali halaman dibuka (seperti DetailPage)
     LaunchedEffect(Unit) {
         viewModel.loadMyKarya(token, userId)
     }
@@ -83,11 +79,8 @@ fun GaleriPribadiPage(
             showDialog = false
             karyaDihapus = null
             viewModel.resetDeleteSuccess()
-            // Refresh data setelah delete
-            viewModel.refreshKarya(token, userId)
         }
     }
-
 
     Column(
         modifier = Modifier
@@ -107,65 +100,58 @@ fun GaleriPribadiPage(
             Text("Upload Karya Baru", color = Color.White)
         }
 
-        // SwipeRefresh untuk pull to refresh
-        PullToRefreshBox(
-            isRefreshing = isLoading,
-            onRefresh = { viewModel.refreshKarya(token, userId) },
-            state = refreshState,
-            modifier = Modifier.weight(1f)
-        ) {
-            when {
-                // Loading pertama kali (data kosong)
-                isLoading && karyaList.isEmpty() -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(color = pinkTua)
+        // Content
+        when {
+            // Loading pertama kali
+            isLoading -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = pinkTua)
+                }
+            }
+
+            // Data kosong
+            karyaList.isEmpty() -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            "Belum ada karya Anda",
+                            color = Color.Gray,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "Mulai unggah karya pertama Anda!",
+                            color = Color.Gray,
+                            fontSize = 12.sp
+                        )
                     }
                 }
+            }
 
-                // Data kosong (bukan loading)
-                karyaList.isEmpty() -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                "Belum ada karya Anda",
-                                color = Color.Gray,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Spacer(Modifier.height(8.dp))
-                            Text(
-                                "Mulai unggah karya pertama Anda!",
-                                color = Color.Gray,
-                                fontSize = 12.sp
-                            )
-                        }
-                    }
-                }
-
-                // Ada data
-                else -> {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(8.dp)
-                    ) {
-                        items(karyaList, key = { it.galeri_id }) { karya ->
-                            KaryaCard(
-                                karya = karya,
-                                pinkTua = pinkTua,
-                                onEdit = {
-                                    navController.navigate("edit/${karya.galeri_id}")
-                                },
-                                onDelete = {
-                                    karyaDihapus = karya
-                                    showDialog = true
-                                }
-                            )
-                        }
+            // Ada data
+            else -> {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(8.dp)
+                ) {
+                    items(karyaList, key = { it.galeri_id }) { karya ->
+                        KaryaCard(
+                            karya = karya,
+                            pinkTua = pinkTua,
+                            onEdit = {
+                                navController.navigate("edit/${karya.galeri_id}")
+                            },
+                            onDelete = {
+                                karyaDihapus = karya
+                                showDialog = true
+                            }
+                        )
                     }
                 }
             }
@@ -179,7 +165,7 @@ fun GaleriPribadiPage(
             isDeleting = isDeleting,
             pinkTua = pinkTua,
             onConfirm = {
-                viewModel.deleteKarya(token, karyaDihapus!!.galeri_id)
+                viewModel.deleteKarya(token, karyaDihapus!!.galeri_id, userId)
             },
             onDismiss = {
                 if (!isDeleting) {

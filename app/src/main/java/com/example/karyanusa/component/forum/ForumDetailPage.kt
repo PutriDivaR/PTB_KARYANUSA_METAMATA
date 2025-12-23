@@ -12,16 +12,16 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.itemsIndexed
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import coil.request.ImageRequest
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Chat
@@ -47,6 +47,7 @@ import com.example.karyanusa.component.auth.LoginTokenManager
 import com.example.karyanusa.network.ForumPertanyaanResponse
 import com.example.karyanusa.network.ForumJawabanResponse
 import com.example.karyanusa.network.RetrofitClient
+import com.example.karyanusa.network.SimpleResponse
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -68,6 +69,7 @@ fun ForumDetailPage(
     val context = LocalContext.current
     val tokenManager = remember { LoginTokenManager(context) }
     val token = tokenManager.getToken()
+    val currentUserId = tokenManager.getUserId()
 
     // State untuk API
     var isLoading by remember { mutableStateOf(true) }
@@ -76,15 +78,22 @@ fun ForumDetailPage(
 
     // State untuk reply
     var replyText by remember { mutableStateOf("") }
-    var showImagePopup by remember { mutableStateOf(false) }
     val replyImages = remember { mutableStateListOf<Uri>() }
     var cameraImageUri by remember { mutableStateOf<Uri?>(null) }
     var isSendingReply by remember { mutableStateOf(false) }
+
+    // Maksimal gambar untuk balasan
+    val maxReplyImages = 2
 
     // State untuk image viewer
     var showImageViewer by remember { mutableStateOf(false) }
     var selectedImageIndex by remember { mutableIntStateOf(0) }
     var viewerImages by remember { mutableStateOf<List<String>>(emptyList()) }
+
+    // State untuk menu dan delete dialog
+    var expandedMenu by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var isDeleting by remember { mutableStateOf(false) }
 
 
     fun loadForumDetail() {
@@ -126,7 +135,44 @@ fun ForumDetailPage(
             })
     }
 
-    // Update fungsi sendReply() di ForumDetailPage.kt
+    fun deleteQuestion() {
+        isDeleting = true
+
+        RetrofitClient.instance.deletePertanyaan("Bearer $token", questionId)
+            .enqueue(object : Callback<SimpleResponse> {
+                override fun onResponse(
+                    call: Call<SimpleResponse>,
+                    response: Response<SimpleResponse>
+                ) {
+                    isDeleting = false
+                    if (response.isSuccessful) {
+                        Toast.makeText(
+                            context,
+                            "Pertanyaan berhasil dihapus",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                        navController.popBackStack()
+                    } else {
+                        Toast.makeText(
+                            context,
+                            "Gagal menghapus: ${response.code()}",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                    showDeleteDialog = false
+                }
+
+                override fun onFailure(call: Call<SimpleResponse>, t: Throwable) {
+                    isDeleting = false
+                    Toast.makeText(
+                        context,
+                        "Error: ${t.message}",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    showDeleteDialog = false
+                }
+            })
+    }
 
     fun sendReply() {
         if (replyText.isBlank()) {
@@ -141,28 +187,27 @@ fun ForumDetailPage(
 
         isSendingReply = true
 
-        // ✅ Buat RequestBody untuk isi balasan
         val isiRequestBody = replyText.toRequestBody("text/plain".toMediaTypeOrNull())
 
-        // ✅ Buat MultipartBody.Part untuk gambar (jika ada)
-        var imagePart: MultipartBody.Part? = null
-        if (replyImages.isNotEmpty()) {
-            val uri = replyImages.first()
+        val imageParts = mutableListOf<MultipartBody.Part>()
+        replyImages.forEachIndexed { index, uri ->
             try {
                 context.contentResolver.openInputStream(uri)?.let { inputStream ->
-                    val file = File(context.cacheDir, "temp_reply_${System.currentTimeMillis()}.jpg")
+                    val file = File(context.cacheDir, "temp_reply_${System.currentTimeMillis()}_$index.jpg")
                     file.outputStream().use { outputStream ->
                         inputStream.copyTo(outputStream)
                     }
                     val requestFile = file.asRequestBody("image/jpeg".toMediaTypeOrNull())
-                    imagePart = MultipartBody.Part.createFormData("image_jawaban", file.name, requestFile)
+                    val part = MultipartBody.Part.createFormData("image_jawaban", file.name, requestFile)
+                    imageParts.add(part)
                 }
             } catch (e: Exception) {
-                Log.e("ForumDetailPage", "Error reading image: ${e.message}")
+                Log.e("ForumDetailPage", "Error reading image $index: ${e.message}")
             }
         }
 
-        // ✅ Panggil API dengan token
+        val imagePart = imageParts.firstOrNull()
+
         RetrofitClient.instance.tambahJawaban(
             token = "Bearer $token",
             id = questionId,
@@ -177,10 +222,18 @@ fun ForumDetailPage(
                 isSendingReply = false
 
                 if (response.isSuccessful) {
-                    Toast.makeText(context, "Balasan terkirim!", Toast.LENGTH_SHORT).show()
+                    // ✅ SEDERHANA: Tampilkan "Balasan terkirim" saja
+                    Toast.makeText(
+                        context,
+                        "Balasan terkirim!",
+                        Toast.LENGTH_SHORT
+                    ).show()
+
+                    Log.d("ForumDetailPage", "Balasan berhasil dikirim")
+
                     replyText = ""
                     replyImages.clear()
-                    loadForumDetail() // Reload data
+                    loadForumDetail()
                 } else {
                     val errorBody = response.errorBody()?.string()
                     Toast.makeText(
@@ -197,12 +250,11 @@ fun ForumDetailPage(
                 t: Throwable
             ) {
                 isSendingReply = false
-                Toast.makeText(context, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "❌ Error: ${t.message}", Toast.LENGTH_SHORT).show()
                 Log.e("ForumDetailPage", "Failure", t)
             }
         })
     }
-
 
     fun formatTanggal(tanggal: String): String {
         return try {
@@ -210,7 +262,8 @@ fun ForumDetailPage(
                 "yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'",
                 Locale.getDefault()
             )
-            val outputFormat = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale("id", "ID"))
+            val indonesiaLocale = Locale.Builder().setLanguage("id").setRegion("ID").build()
+            val outputFormat = SimpleDateFormat("dd MMM yyyy, HH:mm", indonesiaLocale)
             val date = inputFormat.parse(tanggal)
             outputFormat.format(date ?: Date())
 
@@ -226,6 +279,36 @@ fun ForumDetailPage(
         }
     }
 
+    fun isEdited(tanggal: String, updatedAt: String?): Boolean {
+        if (updatedAt == null || updatedAt.isEmpty()) return false
+        if (tanggal == updatedAt) return false
+
+        return try {
+            val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'", Locale.getDefault())
+            format.timeZone = TimeZone.getTimeZone("UTC")
+
+            val createdDate = format.parse(tanggal)
+            val updatedDate = format.parse(updatedAt)
+
+            updatedDate?.after(createdDate) == true
+        } catch (e: Exception) {
+            try {
+                val altFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.getDefault())
+                altFormat.timeZone = TimeZone.getTimeZone("UTC")
+
+                val cleanedCreated = tanggal.replace(Regex("\\.\\d+Z"), "Z")
+                val cleanedUpdated = updatedAt.replace(Regex("\\.\\d+Z"), "Z")
+
+                val createdDate = altFormat.parse(cleanedCreated)
+                val updatedDate = altFormat.parse(cleanedUpdated)
+
+                updatedDate?.after(createdDate) == true
+            } catch (e: Exception) {
+                false
+            }
+        }
+    }
+
     LaunchedEffect(questionId) {
         loadForumDetail()
     }
@@ -233,8 +316,8 @@ fun ForumDetailPage(
     val cameraLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
             if (success && cameraImageUri != null) {
-                if (replyImages.size < 4) replyImages.add(cameraImageUri!!)
-                else Toast.makeText(context, "Maksimal 4 gambar", Toast.LENGTH_SHORT).show()
+                if (replyImages.size < maxReplyImages) replyImages.add(cameraImageUri!!)
+                else Toast.makeText(context, "Maksimal $maxReplyImages gambar", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -254,14 +337,27 @@ fun ForumDetailPage(
     val imagePicker =
         rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
             if (uris.isNotEmpty()) {
-                val total = replyImages.size + uris.size
+                val remainingSlots = maxReplyImages - replyImages.size
 
-                if (total > 4) {
-                    Toast.makeText(context, "Maksimal 4 gambar", Toast.LENGTH_SHORT).show()
-                    val allowed = 4 - replyImages.size
-                    if (allowed > 0) replyImages.addAll(uris.take(allowed))
+                if (remainingSlots > 0) {
+                    val imagesToAdd = uris.take(remainingSlots)
+                    replyImages.addAll(imagesToAdd)
+
+                    if (uris.size > remainingSlots) {
+                        Toast.makeText(
+                            context,
+                            "Hanya ${remainingSlots} gambar yang ditambahkan (maksimal $maxReplyImages gambar)",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    } else {
+                        Toast.makeText(
+                            context,
+                            "${imagesToAdd.size} gambar berhasil ditambahkan",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
                 } else {
-                    replyImages.addAll(uris)
+                    Toast.makeText(context, "Maksimal $maxReplyImages gambar", Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -297,20 +393,40 @@ fun ForumDetailPage(
                         .padding(horizontal = 20.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    IconButton(onClick = { navController.navigate("home") }) {
-                        Icon(Icons.Default.Home, contentDescription = "Home", tint = Color(0xFF4A0E24))
+                    IconButton(onClick = { navController.navigate("beranda") }) {
+                        Icon(
+                            Icons.Default.Home,
+                            contentDescription = "Home",
+                            tint = Color(0xFF4A0E24)
+                        )
                     }
                     IconButton(onClick = { navController.navigate("forum") }) {
-                        Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "Chat", tint = Color(0xFF4A0E24))
+                        Icon(
+                            Icons.AutoMirrored.Filled.Chat,
+                            contentDescription = "Chat",
+                            tint = Color(0xFF4A0E24)
+                        )
                     }
                     IconButton(onClick = { navController.navigate("kursus") }) {
-                        Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = "Kursus", tint = Color(0xFF4A0E24))
+                        Icon(
+                            Icons.AutoMirrored.Filled.MenuBook,
+                            contentDescription = "Kursus",
+                            tint = Color(0xFF4A0E24)
+                        )
                     }
-                    IconButton(onClick = { navController.navigate("gallery") }) {
-                        Icon(Icons.Default.AddAPhoto, contentDescription = "Galeri", tint = Color(0xFF4A0E24))
+                    IconButton(onClick = { navController.navigate("galeri") }) {
+                        Icon(
+                            Icons.Default.AddAPhoto,
+                            contentDescription = "Galeri",
+                            tint = Color(0xFF4A0E24)
+                        )
                     }
                     IconButton(onClick = { navController.navigate("profile") }) {
-                        Icon(Icons.Default.Person, contentDescription = "Profile", tint = Color(0xFF4A0E24))
+                        Icon(
+                            Icons.Default.Person,
+                            contentDescription = "Profile",
+                            tint = Color(0xFF4A0E24)
+                        )
                     }
                 }
             }
@@ -323,7 +439,6 @@ fun ForumDetailPage(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            // Tampilan Loading
             if (isLoading) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = Color(0xFF4A0E24))
@@ -331,7 +446,6 @@ fun ForumDetailPage(
                 return@Scaffold
             }
 
-            // Tampilan Error
             if (error != null) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -348,7 +462,6 @@ fun ForumDetailPage(
                 return@Scaffold
             }
 
-            // Jika data tidak ditemukan
             if (questionData == null) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("Pertanyaan tidak ditemukan", color = Color.Gray)
@@ -356,8 +469,8 @@ fun ForumDetailPage(
                 return@Scaffold
             }
 
-            // Main Content
             val data = questionData!!
+            val isMyQuestion = data.user_id == currentUserId
 
             LazyColumn(
                 modifier = Modifier
@@ -365,170 +478,453 @@ fun ForumDetailPage(
                     .padding(top = 16.dp, start = 16.dp, end = 16.dp, bottom = 1.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Card Pertanyaan
                 item {
-                    Column(
-                        Modifier
-                            .fillMaxWidth()
-                            .background(Color(0xFFFFE4EC), RoundedCornerShape(16.dp))
-                            .padding(16.dp)
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFE4EC)),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFB3C1))
                     ) {
-                        // Header (User info)
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                Modifier
-                                    .size(48.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFFD9D9D9))
-                            )
-                            Spacer(Modifier.width(12.dp))
-                            Column {
-                                Text(
-                                    data.user?.nama ?: "Anonymous",
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF4A0E24)
-                                )
-                                Text(
-                                    "${data.user?.username ?: "user"} • ${formatTanggal(data.tanggal)}",
-                                    color = Color.Gray,
-                                    fontSize = 13.sp
-                                )
-                            }
-                            Spacer(Modifier.weight(1f))
-                            Surface(color = Color(0xFF4A0E24), shape = RoundedCornerShape(8.dp)) {
-                                Text(
-                                    "${data.jawaban?.size ?: 0} Balasan",
-                                    color = Color.White,
-                                    fontSize = 13.sp,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                )
-                            }
-                        }
-
-                        Spacer(Modifier.height(12.dp))
-
-                        // Isi pertanyaan
-                        Text(data.isi, fontSize = 15.sp, color = Color.Black)
-
-                        // Gambar pertanyaan (jika ada)
-                        if (!data.image_forum.isNullOrEmpty()) {
-                            Spacer(Modifier.height(8.dp))
-                            Image(
-                                painter = rememberAsyncImagePainter(data.image_forum),
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(min = 180.dp, max = 300.dp)
-                                    .clip(RoundedCornerShape(16.dp))
-                                    .background(Color.LightGray)
-                                    .clickable {
-                                        viewerImages = listOf(data.image_forum)
-                                        selectedImageIndex = 0
-                                        showImageViewer = true
-                                    },
-                                contentScale = ContentScale.Crop
-                            )
-                        }
-
-                        Spacer(Modifier.height(12.dp))
-
-                        // Input box untuk reply
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(Color.White, RoundedCornerShape(12.dp))
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
                             Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.Top
                             ) {
-                                IconButton(
-                                    onClick = {
-                                        if (replyText.isEmpty()) {
-                                            Toast.makeText(context, "Isi balasan dulu", Toast.LENGTH_SHORT).show()
+                                Row(
+                                    modifier = Modifier.weight(1f),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    // 🔥 AVATAR PERTANYAAN - Prioritas: Foto profil > Inisial
+                                    Box(
+                                        modifier = Modifier
+                                            .size(48.dp)
+                                            .clip(CircleShape)
+                                    ) {
+                                        if (!data.user?.foto_profile.isNullOrEmpty()) {
+                                            // Tampilkan foto profil jika ada
+                                            Image(
+                                                painter = rememberAsyncImagePainter(
+                                                    coil.request.ImageRequest.Builder(LocalContext.current)
+                                                        .data(data.user?.foto_profile)
+                                                        .crossfade(true)
+                                                        .build()
+                                                ),
+                                                contentDescription = "Profile Photo",
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .clip(CircleShape),
+                                                contentScale = ContentScale.Crop
+                                            )
                                         } else {
-                                            showImagePopup = true
+                                            // Tampilkan inisial jika tidak ada foto
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .background(Color.DarkGray, CircleShape),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = (data.user?.nama?.firstOrNull() ?: "?").toString().uppercase(),
+                                                    color = Color.White,
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 18.sp
+                                                )
+                                            }
                                         }
                                     }
+
+                                    Spacer(Modifier.width(10.dp))
+
+                                    Column {
+                                        Text(
+                                            text = data.user?.nama ?: "Anonymous",
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFF4A0E24),
+                                            fontSize = 14.sp
+                                        )
+                                        Text(
+                                            text = "@${data.user?.username ?: "user"}",
+                                            color = Color.Gray,
+                                            fontSize = 12.sp
+                                        )
+                                    }
+                                }
+
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
-                                    Icon(Icons.Default.AddPhotoAlternate, null, tint = Color(0xFF4A0E24))
-                                }
-
-                                IconButton(onClick = {
-                                    cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
-                                }) {
-                                    Icon(Icons.Default.CameraAlt, contentDescription = "Kamera", tint = Color(0xFF4A0E24))
-                                }
-
-                                BasicTextField(
-                                    value = replyText,
-                                    onValueChange = { replyText = it },
-                                    textStyle = TextStyle(color = Color.Black, fontSize = 14.sp),
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .padding(horizontal = 6.dp, vertical = 8.dp),
-                                    decorationBox = { inner ->
-                                        if (replyText.isEmpty()) {
-                                            Text("Tulis balasan...", color = Color.Gray)
-                                        }
-                                        inner()
-                                    },
-                                    enabled = !isSendingReply
-                                )
-
-                                if (isSendingReply) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(24.dp),
+                                    Surface(
                                         color = Color(0xFF4A0E24),
-                                        strokeWidth = 2.dp
-                                    )
-                                } else {
-                                    IconButton(onClick = { sendReply() }) {
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Text(
+                                            text = "${data.jawaban?.size ?: 0} Balasan",
+                                            color = Color.White,
+                                            fontSize = 12.sp,
+                                            modifier = Modifier.padding(
+                                                horizontal = 10.dp,
+                                                vertical = 5.dp
+                                            )
+                                        )
+                                    }
+
+                                    if (isMyQuestion) {
+                                        Box {
+                                            IconButton(onClick = { expandedMenu = !expandedMenu }) {
+                                                Icon(
+                                                    imageVector = Icons.Default.MoreVert,
+                                                    contentDescription = "Menu",
+                                                    tint = Color(0xFF4A0E24)
+                                                )
+                                            }
+                                            DropdownMenu(
+                                                expanded = expandedMenu,
+                                                onDismissRequest = { expandedMenu = false }
+                                            ) {
+                                                DropdownMenuItem(
+                                                    text = { Text("Edit") },
+                                                    onClick = {
+                                                        expandedMenu = false
+                                                        navController.navigate("editPertanyaan/$questionId")
+                                                    }
+                                                )
+                                                DropdownMenuItem(
+                                                    text = { Text("Hapus") },
+                                                    onClick = {
+                                                        expandedMenu = false
+                                                        showDeleteDialog = true
+                                                    }
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            Spacer(Modifier.height(12.dp))
+
+                            Text(data.isi, fontSize = 15.sp, color = Color.Black)
+
+                            if (!data.image_forum.isNullOrEmpty()) {
+                                val imageUrls = data.image_forum ?: emptyList()
+                                Spacer(Modifier.height(8.dp))
+
+                                when (imageUrls.size) {
+                                    1 -> {
+                                        Image(
+                                            painter = rememberAsyncImagePainter(imageUrls[0]),
+                                            contentDescription = null,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .heightIn(min = 200.dp, max = 300.dp)
+                                                .clip(RoundedCornerShape(12.dp))
+                                                .background(Color.LightGray)
+                                                .clickable {
+                                                    viewerImages = imageUrls
+                                                    selectedImageIndex = 0
+                                                    showImageViewer = true
+                                                },
+                                            contentScale = ContentScale.Crop
+                                        )
+                                    }
+
+                                    2 -> {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            imageUrls.forEachIndexed { index, imageUrl ->
+                                                Image(
+                                                    painter = rememberAsyncImagePainter(imageUrl),
+                                                    contentDescription = null,
+                                                    modifier = Modifier
+                                                        .weight(1f)
+                                                        .height(180.dp)
+                                                        .clip(RoundedCornerShape(12.dp))
+                                                        .background(Color.LightGray)
+                                                        .clickable {
+                                                            viewerImages = imageUrls
+                                                            selectedImageIndex = index
+                                                            showImageViewer = true
+                                                        },
+                                                    contentScale = ContentScale.Crop
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    3 -> {
+                                        Column(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Image(
+                                                painter = rememberAsyncImagePainter(imageUrls[0]),
+                                                contentDescription = null,
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .height(200.dp)
+                                                    .clip(RoundedCornerShape(12.dp))
+                                                    .background(Color.LightGray)
+                                                    .clickable {
+                                                        viewerImages = imageUrls
+                                                        selectedImageIndex = 0
+                                                        showImageViewer = true
+                                                    },
+                                                contentScale = ContentScale.Crop
+                                            )
+
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                imageUrls.drop(1)
+                                                    .forEachIndexed { index, imageUrl ->
+                                                        Image(
+                                                            painter = rememberAsyncImagePainter(
+                                                                imageUrl
+                                                            ),
+                                                            contentDescription = null,
+                                                            modifier = Modifier
+                                                                .weight(1f)
+                                                                .height(120.dp)
+                                                                .clip(RoundedCornerShape(12.dp))
+                                                                .background(Color.LightGray)
+                                                                .clickable {
+                                                                    viewerImages = imageUrls
+                                                                    selectedImageIndex = index + 1
+                                                                    showImageViewer = true
+                                                                },
+                                                            contentScale = ContentScale.Crop
+                                                        )
+                                                    }
+                                            }
+                                        }
+                                    }
+
+                                    else -> {
+                                        Column(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                imageUrls.take(2)
+                                                    .forEachIndexed { index, imageUrl ->
+                                                        Image(
+                                                            painter = rememberAsyncImagePainter(
+                                                                imageUrl
+                                                            ),
+                                                            contentDescription = null,
+                                                            modifier = Modifier
+                                                                .weight(1f)
+                                                                .height(150.dp)
+                                                                .clip(RoundedCornerShape(12.dp))
+                                                                .background(Color.LightGray)
+                                                                .clickable {
+                                                                    viewerImages = imageUrls
+                                                                    selectedImageIndex = index
+                                                                    showImageViewer = true
+                                                                },
+                                                            contentScale = ContentScale.Crop
+                                                        )
+                                                    }
+                                            }
+
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                imageUrls.drop(2).take(2)
+                                                    .forEachIndexed { index, imageUrl ->
+                                                        Image(
+                                                            painter = rememberAsyncImagePainter(
+                                                                imageUrl
+                                                            ),
+                                                            contentDescription = null,
+                                                            modifier = Modifier
+                                                                .weight(1f)
+                                                                .height(150.dp)
+                                                                .clip(RoundedCornerShape(12.dp))
+                                                                .background(Color.LightGray)
+                                                                .clickable {
+                                                                    viewerImages = imageUrls
+                                                                    selectedImageIndex = index + 2
+                                                                    showImageViewer = true
+                                                                },
+                                                            contentScale = ContentScale.Crop
+                                                        )
+                                                    }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            Spacer(Modifier.height(12.dp))
+
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(Color.White, RoundedCornerShape(12.dp))
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    IconButton(
+                                        onClick = {
+                                            if (replyImages.size < maxReplyImages) {
+                                                imagePicker.launch("image/*")
+                                            } else {
+                                                Toast.makeText(
+                                                    context,
+                                                    "Maksimal $maxReplyImages gambar",
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
+                                            }
+                                        }
+                                    ) {
                                         Icon(
-                                            Icons.AutoMirrored.Filled.Send,
-                                            contentDescription = "Kirim",
+                                            Icons.Default.AddPhotoAlternate,
+                                            null,
                                             tint = Color(0xFF4A0E24)
                                         )
                                     }
+
+                                    IconButton(onClick = {
+                                        cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                                    }) {
+                                        Icon(
+                                            Icons.Default.CameraAlt,
+                                            contentDescription = "Kamera",
+                                            tint = Color(0xFF4A0E24)
+                                        )
+                                    }
+
+                                    BasicTextField(
+                                        value = replyText,
+                                        onValueChange = { replyText = it },
+                                        textStyle = TextStyle(
+                                            color = Color.Black,
+                                            fontSize = 14.sp
+                                        ),
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .padding(horizontal = 6.dp, vertical = 8.dp),
+                                        decorationBox = { inner ->
+                                            if (replyText.isEmpty()) {
+                                                Text("Tulis balasan...", color = Color.Gray)
+                                            }
+                                            inner()
+                                        },
+                                        enabled = !isSendingReply
+                                    )
+
+                                    if (isSendingReply) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(24.dp),
+                                            color = Color(0xFF4A0E24),
+                                            strokeWidth = 2.dp
+                                        )
+                                    } else {
+                                        IconButton(onClick = { sendReply() }) {
+                                            Icon(
+                                                Icons.AutoMirrored.Filled.Send,
+                                                contentDescription = "Kirim",
+                                                tint = Color(0xFF4A0E24)
+                                            )
+                                        }
+                                    }
                                 }
                             }
-                        }
 
-                        // Preview gambar reply
-                        if (replyImages.isNotEmpty()) {
-                            Spacer(Modifier.height(8.dp))
-                            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                items(replyImages) { uri ->
-                                    Box(
-                                        Modifier
-                                            .size(90.dp)
-                                            .clip(RoundedCornerShape(12.dp))
-                                    ) {
-                                        Image(
-                                            painter = rememberAsyncImagePainter(uri),
-                                            contentDescription = null,
-                                            modifier = Modifier.fillMaxSize(),
-                                            contentScale = ContentScale.Crop
-                                        )
-                                        IconButton(
-                                            onClick = { replyImages.remove(uri) },
-                                            modifier = Modifier
-                                                .align(Alignment.TopEnd)
-                                                .background(Color.Black.copy(alpha = 0.4f), CircleShape)
-                                                .size(22.dp)
+                            if (replyImages.isNotEmpty()) {
+                                Spacer(Modifier.height(8.dp))
+                                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    items(replyImages) { uri ->
+                                        Box(
+                                            Modifier
+                                                .size(90.dp)
+                                                .clip(RoundedCornerShape(12.dp))
                                         ) {
-                                            Icon(
-                                                Icons.Default.Close,
-                                                null,
-                                                tint = Color.White,
-                                                modifier = Modifier.size(14.dp)
+                                            Image(
+                                                painter = rememberAsyncImagePainter(uri),
+                                                contentDescription = null,
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentScale = ContentScale.Crop
+                                            )
+                                            IconButton(
+                                                onClick = { replyImages.remove(uri) },
+                                                modifier = Modifier
+                                                    .align(Alignment.TopEnd)
+                                                    .background(
+                                                        Color.Black.copy(alpha = 0.4f),
+                                                        CircleShape
+                                                    )
+                                                    .size(22.dp)
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.Close,
+                                                    null,
+                                                    tint = Color.White,
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            Spacer(Modifier.height(8.dp))
+
+                            // ✅ DIPERBAIKI: Tanggal, jam, status edited sejajar dengan counter gambar
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // Counter gambar di kiri
+                                Text(
+                                    text = "${replyImages.size}/$maxReplyImages gambar",
+                                    fontSize = 12.sp,
+                                    color = Color.Gray
+                                )
+
+                                // Tanggal, jam, dan status edited di kanan
+                                Row(
+                                    horizontalArrangement = Arrangement.End,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = formatTanggal(data.tanggal),
+                                        color = Color.Gray,
+                                        fontSize = 11.sp
+                                    )
+
+                                    if (isEdited(data.tanggal, data.updated_at)) {
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Surface(
+                                            shape = RoundedCornerShape(4.dp),
+                                            color = Color(0xFFFFB3C1)
+                                        ) {
+                                            Text(
+                                                text = "edited",
+                                                fontSize = 9.sp,
+                                                color = Color(0xFF4A0E24),
+                                                fontWeight = FontWeight.Medium,
+                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
                                             )
                                         }
                                     }
                                 }
                             }
                         }
+
                     }
 
                     Spacer(Modifier.height(16.dp))
@@ -540,7 +936,6 @@ fun ForumDetailPage(
                     )
                 }
 
-                // List Jawaban
                 if (data.jawaban.isNullOrEmpty()) {
                     item {
                         Box(
@@ -558,150 +953,309 @@ fun ForumDetailPage(
                     }
                 } else {
                     items(data.jawaban) { reply ->
-                        Column(
-                            Modifier
-                                .fillMaxWidth()
-                                .background(Color(0xFFFFE4EC), RoundedCornerShape(12.dp))
-                                .padding(12.dp)
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    Modifier
-                                        .size(36.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(0xFFD9D9D9))
-                                )
-                                Spacer(Modifier.width(8.dp))
-                                Column {
-                                    Text(
-                                        reply.user?.nama ?: "Anonymous",
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF4A0E24)
-                                    )
-                                    Text(
-                                        "${reply.user?.username ?: "user"} • ${formatTanggal(reply.tanggal)}",
-                                        color = Color.Gray,
-                                        fontSize = 12.sp
-                                    )
-                                }
-                            }
-                            Spacer(Modifier.height(8.dp))
-                            Text(reply.isi, fontSize = 14.sp, color = Color.Black)
-
-                            // Gambar jawaban jika ada
-                            if (!reply.image_jawaban.isNullOrEmpty()) {
-                                Spacer(Modifier.height(8.dp))
-                                Image(
-                                    painter = rememberAsyncImagePainter(reply.image_jawaban),
-                                    contentDescription = null,
-                                    modifier = Modifier
-                                        .size(100.dp)
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .clickable {
-                                            viewerImages = listOf(reply.image_jawaban)
-                                            selectedImageIndex = 0
-                                            showImageViewer = true
-                                        },
-                                    contentScale = ContentScale.Crop
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Popup upload gambar
-            if (showImagePopup) {
-                Dialog(onDismissRequest = { showImagePopup = false }) {
-                    Box(
-                        Modifier
-                            .fillMaxSize()
-                            .background(Color.Black.copy(alpha = 0.4f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Box(
-                            Modifier
-                                .width(300.dp)
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(Color(0xFFFFD6E8))
-                                .padding(20.dp)
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopEnd) {
-                                    Icon(
-                                        Icons.Default.Close,
-                                        null,
-                                        tint = Color(0xFF4A0E24),
-                                        modifier = Modifier
-                                            .size(22.dp)
-                                            .clickable { showImagePopup = false }
-                                    )
-                                }
-                                Spacer(Modifier.height(8.dp))
-                                Text(
-                                    "Pilih gambar",
-                                    color = Color(0xFF4A0E24),
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Spacer(Modifier.height(4.dp))
-                                Text(
-                                    "Maksimal 4 gambar dapat diunggah.",
-                                    color = Color(0xFF4A0E24).copy(alpha = 0.8f)
-                                )
-                                Spacer(Modifier.height(18.dp))
-                                Button(
-                                    onClick = {
-                                        showImagePopup = false
-                                        imagePicker.launch("image/*")
-                                    },
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4A0E24)),
-                                    shape = RoundedCornerShape(30.dp),
-                                    modifier = Modifier
-                                        .fillMaxWidth(0.8f)
-                                        .height(45.dp)
-                                ) {
-                                    Text("Upload dari perangkat", color = Color.White, fontSize = 14.sp)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Image Viewer
-            if (showImageViewer) {
-                Dialog(onDismissRequest = { showImageViewer = false }) {
-                    Box(
-                        Modifier
-                            .fillMaxSize()
-                            .background(Color.Black)
-                    ) {
-                        val pagerState = rememberPagerState(
-                            initialPage = selectedImageIndex,
-                            pageCount = { viewerImages.size }
-                        )
-                        HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
-                            Image(
-                                painter = rememberAsyncImagePainter(viewerImages[page]),
-                                contentDescription = null,
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Fit
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFE4EC)),
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                Color(0xFFFFB3C1)
                             )
-                        }
-                        IconButton(
-                            onClick = { showImageViewer = false },
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .padding(20.dp)
-                                .size(40.dp)
-                                .background(Color.Black.copy(alpha = 0.4f), CircleShape)
                         ) {
-                            Icon(Icons.Default.Close, contentDescription = "Tutup", tint = Color.White)
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.Top
+                                ) {
+                                    // 🔥 AVATAR BALASAN - Prioritas: Foto profil > Inisial
+                                    Box(
+                                        modifier = Modifier
+                                            .size(45.dp)
+                                            .clip(CircleShape)
+                                    ) {
+                                        if (!reply.user?.foto_profile.isNullOrEmpty()) {
+                                            // Tampilkan foto profil jika ada
+                                            Image(
+                                                painter = rememberAsyncImagePainter(
+                                                    coil.request.ImageRequest.Builder(LocalContext.current)
+                                                        .data(reply.user?.foto_profile)
+                                                        .crossfade(true)
+                                                        .build()
+                                                ),
+                                                contentDescription = "Profile Photo",
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .clip(CircleShape),
+                                                contentScale = ContentScale.Crop
+                                            )
+                                        } else {
+                                            // Tampilkan inisial jika tidak ada foto
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .background(Color.DarkGray, CircleShape),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = (reply.user?.nama?.firstOrNull() ?: "?").toString().uppercase(),
+                                                    color = Color.White,
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 16.sp
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    Spacer(Modifier.width(8.dp))
+
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = reply.user?.nama ?: "Anonymous",
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFF4A0E24),
+                                            fontSize = 13.sp
+                                        )
+                                        Text(
+                                            text = "@${reply.user?.username ?: "user"}",
+                                            color = Color.Gray,
+                                            fontSize = 11.sp
+                                        )
+                                    }
+
+                                    Column(horizontalAlignment = Alignment.End) {
+                                        Text(
+                                            text = formatTanggal(reply.tanggal),
+                                            color = Color.Gray,
+                                            fontSize = 10.sp
+                                        )
+
+                                        if (isEdited(reply.tanggal, reply.updated_at)) {
+                                            Spacer(modifier = Modifier.height(2.dp))
+                                            Surface(
+                                                shape = RoundedCornerShape(4.dp),
+                                                color = Color(0xFFFFB3C1)
+                                            ) {
+                                                Text(
+                                                    text = "edited",
+                                                    fontSize = 8.sp,
+                                                    color = Color(0xFF4A0E24),
+                                                    fontWeight = FontWeight.Medium,
+                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
+                                Spacer(Modifier.height(8.dp))
+                                Text(reply.isi, fontSize = 14.sp, color = Color.Black)
+
+                                if (!reply.image_jawaban.isNullOrEmpty()) {
+                                    Spacer(Modifier.height(8.dp))
+
+                                    val replyImageUrls = when (reply.image_jawaban) {
+                                        is List<*> -> reply.image_jawaban.filterIsInstance<String>()
+                                        is String -> listOf(reply.image_jawaban)
+                                        else -> emptyList()
+                                    }
+
+                                    if (replyImageUrls.isNotEmpty()) {
+                                        when (replyImageUrls.size) {
+                                            1 -> {
+                                                Image(
+                                                    painter = rememberAsyncImagePainter(replyImageUrls[0]),
+                                                    contentDescription = null,
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .heightIn(min = 150.dp, max = 250.dp)
+                                                        .clip(RoundedCornerShape(12.dp))
+                                                        .clickable {
+                                                            viewerImages = replyImageUrls
+                                                            selectedImageIndex = 0
+                                                            showImageViewer = true
+                                                        },
+                                                    contentScale = ContentScale.Crop
+                                                )
+                                            }
+                                            else -> {
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                                ) {
+                                                    replyImageUrls.take(2).forEachIndexed { index, imageUrl ->
+                                                        Image(
+                                                            painter = rememberAsyncImagePainter(imageUrl),
+                                                            contentDescription = null,
+                                                            modifier = Modifier
+                                                                .weight(1f)
+                                                                .height(150.dp)
+                                                                .clip(RoundedCornerShape(12.dp))
+                                                                .clickable {
+                                                                    viewerImages = replyImageUrls
+                                                                    selectedImageIndex = index
+                                                                    showImageViewer = true
+                                                                },
+                                                            contentScale = ContentScale.Crop
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
             }
+
+            if (showDeleteDialog) {
+                AlertDialog(
+                    onDismissRequest = {
+                        if (!isDeleting) {
+                            showDeleteDialog = false
+                        }
+                    },
+                    title = {
+                        Text("Konfirmasi Hapus", fontWeight = FontWeight.Bold)
+                    },
+                    text = {
+                        if (isDeleting) {
+                            Row(
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                CircularProgressIndicator(
+                                    color = Color(0xFF4A0E24),
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(Modifier.width(12.dp))
+                                Text("Menghapus...")
+                            }
+                        } else {
+                            Text("Apakah kamu yakin ingin menghapus pertanyaan ini? Semua balasan juga akan terhapus.")
+                        }
+                    },
+                    confirmButton = {
+                        if (!isDeleting) {
+                            TextButton(onClick = { deleteQuestion() }) {
+                                Text("Ya", color = Color(0xFF4A0E24), fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    },
+                    dismissButton = {
+                        if (!isDeleting) {
+                            TextButton(onClick = { showDeleteDialog = false }) {
+                                Text("Batal", color = Color.Gray)
+                            }
+                        }
+                    },
+                    containerColor = Color.White,
+                    tonalElevation = 4.dp
+                )
+            }
+
+            if (showImageViewer && viewerImages.isNotEmpty()) {
+                ImageViewerDialog(
+                    images = viewerImages,
+                    initialPage = selectedImageIndex,
+                    onDismiss = { showImageViewer = false }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun ImageViewerDialog(
+    images: List<String>,
+    initialPage: Int = 0,
+    onDismiss: () -> Unit
+) {
+    val pagerState = rememberPagerState(
+        initialPage = initialPage,
+        pageCount = { images.size }
+    )
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(
+            dismissOnBackPress = true,
+            dismissOnClickOutside = true,
+            usePlatformDefaultWidth = false
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+        ) {
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize()
+            ) { page ->
+                var scale by remember { mutableFloatStateOf(1f) }
+                var offsetX by remember { mutableFloatStateOf(0f) }
+                var offsetY by remember { mutableFloatStateOf(0f) }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .pointerInput(Unit) {
+                            detectTransformGestures { _, pan, zoom, _ ->
+                                scale = (scale * zoom).coerceIn(1f, 3f)
+                                if (scale > 1f) {
+                                    offsetX += pan.x
+                                    offsetY += pan.y
+                                } else {
+                                    offsetX = 0f
+                                    offsetY = 0f
+                                }
+                            }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        painter = rememberAsyncImagePainter(images[page]),
+                        contentDescription = "Preview Image ${page + 1}",
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer(
+                                scaleX = scale,
+                                scaleY = scale,
+                                translationX = offsetX,
+                                translationY = offsetY
+                            ),
+                        contentScale = ContentScale.Fit
+                    )
+                }
+            }
+
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(16.dp)
+                    .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Close",
+                    tint = Color.White
+                )
+            }
+
+            Text(
+                text = "${pagerState.currentPage + 1} / ${images.size}",
+                color = Color.White,
+                fontSize = 14.sp,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(16.dp)
+                    .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
+            )
         }
     }
 }

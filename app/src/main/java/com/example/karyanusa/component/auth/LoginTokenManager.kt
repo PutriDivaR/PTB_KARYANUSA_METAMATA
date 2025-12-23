@@ -12,6 +12,8 @@ class LoginTokenManager(context: Context) {
         private const val KEY_TOKEN = "user_token"
         private const val KEY_USER_ID = "user_id"
         private const val KEY_USER_NAME = "user_name"
+        private const val KEY_USER_USERNAME = "user_username"
+
 
         private const val KEY_FCM_TOKEN = "fcm_token"
     }
@@ -41,6 +43,7 @@ class LoginTokenManager(context: Context) {
     }
 
     fun getUserName(): String? = prefs.getString(KEY_USER_NAME, null)
+    fun getUsername(): String? = prefs.getString(KEY_USER_USERNAME, null)
 
     fun clear() {
         prefs.edit().clear().apply()

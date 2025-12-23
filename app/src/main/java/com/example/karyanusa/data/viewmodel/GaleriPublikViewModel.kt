@@ -18,7 +18,7 @@ class GaleriPublikViewModel(application: Application) : AndroidViewModel(applica
     private val karyaRepository = KaryaRepository(api, database.karyaDao())
 
     // StateFlows untuk UI
-    private val _isLoading = MutableStateFlow(false)
+    private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     private val _searchQuery = MutableStateFlow("")
@@ -27,12 +27,17 @@ class GaleriPublikViewModel(application: Application) : AndroidViewModel(applica
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
-    // Data karya dari Room Database
-    private val _allKaryaList = MutableStateFlow<List<KaryaEntity>>(emptyList())
+    // Data karya dari Room Database (auto-update)
+    private val allKaryaFlow = karyaRepository.getAllKarya()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
 
     // Filtered karya berdasarkan search query
     val filteredKaryaList: StateFlow<List<KaryaEntity>> = combine(
-        _allKaryaList,
+        allKaryaFlow,
         _searchQuery
     ) { karya, query ->
         if (query.isBlank()) {
@@ -50,26 +55,24 @@ class GaleriPublikViewModel(application: Application) : AndroidViewModel(applica
         initialValue = emptyList()
     )
 
-    // Load semua karya publik dari Room + Sync dari API
+    private var isFirstLoad = true
+
+    // Load semua karya publik (hanya 1 kali)
     fun loadAllKarya() {
+        if (!isFirstLoad) {
+            // Sudah loaded, refresh di background
+            refreshInBackground()
+            return
+        }
+
         viewModelScope.launch {
             _isLoading.value = true
             _errorMessage.value = null
 
             try {
-                // Sync dari API
                 karyaRepository.syncAllKarya()
-
-                // Observe dari Room Database
-                karyaRepository.getAllKarya()
-                    .catch { e ->
-                        Log.e("GaleriPublikVM", "Error observing karya: ${e.message}")
-                        _errorMessage.value = "Gagal memuat data: ${e.message}"
-                    }
-                    .collect { karya ->
-                        _allKaryaList.value = karya
-                        Log.d("GaleriPublikVM", "All karya loaded: ${karya.size}")
-                    }
+                Log.d("GaleriPublikVM", "All karya synced successfully")
+                isFirstLoad = false
             } catch (e: Exception) {
                 Log.e("GaleriPublikVM", "Error loading karya: ${e.message}")
                 _errorMessage.value = "Gagal memuat galeri: ${e.message}"
@@ -79,18 +82,14 @@ class GaleriPublikViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
-    // Refresh data (pull to refresh)
-    fun refreshKarya() {
+    // Refresh di background tanpa loading indicator
+    private fun refreshInBackground() {
         viewModelScope.launch {
-            _isLoading.value = true
             try {
                 karyaRepository.syncAllKarya()
-                Log.d("GaleriPublikVM", "Karya refreshed")
+                Log.d("GaleriPublikVM", "Background refresh completed")
             } catch (e: Exception) {
-                Log.e("GaleriPublikVM", "Error refreshing: ${e.message}")
-                _errorMessage.value = "Gagal refresh: ${e.message}"
-            } finally {
-                _isLoading.value = false
+                Log.e("GaleriPublikVM", "Background refresh failed: ${e.message}")
             }
         }
     }

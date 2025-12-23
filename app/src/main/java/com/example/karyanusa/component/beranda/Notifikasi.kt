@@ -44,16 +44,17 @@ fun NotifikasiPage(navController: NavController) {
     // ===== STATE =====
     var notifikasiList by remember { mutableStateOf<List<Notifikasi>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
+    var errorMsg by remember { mutableStateOf<String?>(null) }
 
     // ===== LOAD DATA =====
     LaunchedEffect(bearerToken) {
         if (bearerToken == null) {
-            Log.e("NOTIF_ANDROID", "Bearer token NULL")
+            errorMsg = "Silakan login terlebih dahulu"
             isLoading = false
             return@LaunchedEffect
         }
 
-        Log.d("NOTIF_ANDROID", "Request with token: $bearerToken")
+        isLoading = true
 
         RetrofitClient.instance
             .getNotifications(bearerToken)
@@ -63,22 +64,21 @@ fun NotifikasiPage(navController: NavController) {
                     call: Call<List<Notifikasi>>,
                     response: Response<List<Notifikasi>>
                 ) {
-                    Log.d("NOTIF_ANDROID", "Code: ${response.code()}")
-                    Log.d("NOTIF_ANDROID", "Body: ${response.body()}")
-
                     if (response.isSuccessful) {
                         notifikasiList = response.body() ?: emptyList()
+                    } else {
+                        errorMsg = "Error ${response.code()}"
                     }
-
                     isLoading = false
                 }
 
                 override fun onFailure(call: Call<List<Notifikasi>>, t: Throwable) {
-                    Log.e("NOTIF_ANDROID", "Error", t)
+                    errorMsg = t.message
                     isLoading = false
                 }
             })
     }
+
 
     // ===== WARNA =====
     val pinkMuda = Color(0xFFFFE4EC)
@@ -146,17 +146,60 @@ fun NotifikasiPage(navController: NavController) {
 
             when {
                 isLoading -> {
-                    CircularProgressIndicator(
-                        modifier = Modifier.align(Alignment.Center)
-                    )
+                    Column(
+                        modifier = Modifier.align(Alignment.Center),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        CircularProgressIndicator(color = pinkTua)
+                        Spacer(Modifier.height(8.dp))
+                        Text("Memuat notifikasi...", color = Color.Gray)
+                    }
+                }
+
+                errorMsg != null -> {
+                    Column(
+                        modifier = Modifier.align(Alignment.Center),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = errorMsg!!,
+                            color = Color.Red,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Button(
+                            onClick = {
+                                // Retry
+                                isLoading = true
+                                errorMsg = null
+                                navController.navigate("notifikasi") {
+                                    popUpTo("notifikasi") { inclusive = true }
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = pinkTua)
+                        ) {
+                            Text("Coba Lagi")
+                        }
+                    }
                 }
 
                 notifikasiList.isEmpty() -> {
-                    Text(
-                        text = "Belum ada notifikasi",
-                        color = Color.Gray,
-                        modifier = Modifier.align(Alignment.Center)
-                    )
+                    Column(
+                        modifier = Modifier.align(Alignment.Center),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "Belum ada notifikasi",
+                            color = Color.Gray,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = "Notifikasi akan muncul di sini",
+                            color = Color.Gray,
+                            fontSize = 12.sp
+                        )
+                    }
                 }
 
                 else -> {
@@ -192,12 +235,11 @@ fun NotifikasiPage(navController: NavController) {
                                         when (notif.type) {
                                             "share_kursus" -> {
                                                 notif.related_id?.let { id ->
-                                                    navController.navigate("detail_kursus/$id") // Ini sudah benar
+                                                    navController.navigate("detail_kursus/$id")
                                                 }
                                             }
 
                                             "like" -> {
-                                                // PERUBAHAN: Panggil rute 'galeri' dengan argumen
                                                 navController.navigate("galeri?initialTab=pribadi")
                                             }
 
@@ -205,10 +247,11 @@ fun NotifikasiPage(navController: NavController) {
                                                 navController.navigate("galeri?initialTab=pribadi")
                                             }
 
-                                            //untuk wanda hapus aja '//' nya
-                                            //"forum" -> {
-                                            //navController.navigate("galeri?initialTab=pribadi") //ganti navigasi nya nanti
-                                            // }
+                                            "reply_forum" -> {
+                                                notif.related_id?.let { pertanyaanId ->
+                                                    navController.navigate("forumDetail/$pertanyaanId")
+                                                }
+                                            }
                                         }
                                     },
                                 shape = RoundedCornerShape(12.dp),
@@ -247,7 +290,6 @@ fun NotifikasiPage(navController: NavController) {
                                 }
                             }
                         }
-
                     }
                 }
             }
@@ -267,13 +309,13 @@ fun markAsRead(
                 call: Call<ResponseBody>,
                 response: Response<ResponseBody>
             ) {
+                Log.d("NOTIF_READ", "✅ Mark as read success: ${response.code()}")
                 onDone()
             }
 
             override fun onFailure(call: Call<ResponseBody>, t: Throwable) {
-                Log.e("NOTIF_READ", "Gagal update is_read")
+                Log.e("NOTIF_READ", "❌ Gagal update is_read: ${t.message}")
                 onDone()
             }
         })
 }
-
