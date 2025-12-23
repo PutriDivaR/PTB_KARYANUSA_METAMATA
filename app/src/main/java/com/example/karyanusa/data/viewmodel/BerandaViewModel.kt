@@ -19,22 +19,16 @@ class BerandaViewModel(application: Application) : AndroidViewModel(application)
 
     private val database = AppDatabase.getInstance(application)
     private val api = RetrofitClient.instance
-
     private val kursusRepository = KursusRepository(api, database.kursusDao())
     private val enrollmentRepository = EnrollmentRepository(api, database.enrollmentDao())
     private val karyaRepository = KaryaRepository(api, database.karyaDao())
-
-    // StateFlows untuk UI
     private val _isLoadingKursus = MutableStateFlow(false)
     val isLoadingKursus: StateFlow<Boolean> = _isLoadingKursus.asStateFlow()
-
     private val _isLoadingEnrollments = MutableStateFlow(false)
     val isLoadingEnrollments: StateFlow<Boolean> = _isLoadingEnrollments.asStateFlow()
-
     private val _isLoadingKarya = MutableStateFlow(false)
     val isLoadingKarya: StateFlow<Boolean> = _isLoadingKarya.asStateFlow()
 
-    // Data dari Room Database
     val kursusList: StateFlow<List<KursusEntity>> = kursusRepository.getKursus()
         .stateIn(
             scope = viewModelScope,
@@ -48,7 +42,6 @@ class BerandaViewModel(application: Application) : AndroidViewModel(application)
     private val _myKaryaList = MutableStateFlow<List<KaryaEntity>>(emptyList())
     val myKaryaList: StateFlow<List<KaryaEntity>> = _myKaryaList.asStateFlow()
 
-    // Sync data dari API ke Room
     fun syncKursus() {
         viewModelScope.launch {
             _isLoadingKursus.value = true
@@ -68,17 +61,15 @@ class BerandaViewModel(application: Application) : AndroidViewModel(application)
             _isLoadingEnrollments.value = true
             try {
                 enrollmentRepository.syncEnrollments(token, userId)
-
-                // Ambil data sekali saja, jangan collect terus-menerus
                 enrollmentRepository.getEnrollments(userId)
-                    .take(1) // Ambil emisi pertama saja
+                    .take(1)
                     .collect { enrollments ->
                         _enrollmentsList.value = enrollments
                         Log.d("BerandaVM", "Enrollments updated: ${enrollments.size}")
                     }
             } catch (e: Exception) {
                 Log.e("BerandaVM", "Error syncing enrollments: ${e.message}")
-                _enrollmentsList.value = emptyList() // Set empty jika error
+                _enrollmentsList.value = emptyList()
             } finally {
                 _isLoadingEnrollments.value = false
             }
@@ -90,24 +81,20 @@ class BerandaViewModel(application: Application) : AndroidViewModel(application)
             _isLoadingKarya.value = true
             try {
                 karyaRepository.syncMyKarya(token, userId)
-
-                // Ambil data sekali saja, jangan collect terus-menerus
                 karyaRepository.getMyKarya(userId)
-                    .take(1) // Ambil emisi pertama saja
+                    .take(1)
                     .collect { karya ->
                         _myKaryaList.value = karya
                         Log.d("BerandaVM", "My karya updated: ${karya.size}")
                     }
             } catch (e: Exception) {
                 Log.e("BerandaVM", "Error syncing karya: ${e.message}")
-                _myKaryaList.value = emptyList() // Set empty jika error
+                _myKaryaList.value = emptyList()
             } finally {
                 _isLoadingKarya.value = false
             }
         }
     }
-
-    // Load all data sekaligus
     fun loadAllData(token: String?, userId: Int?) {
         syncKursus()
 
@@ -116,8 +103,6 @@ class BerandaViewModel(application: Application) : AndroidViewModel(application)
             syncMyKarya(token, userId)
         }
     }
-
-    // Refresh data (pull to refresh)
     fun refreshAllData(token: String?, userId: Int?) {
         viewModelScope.launch {
             _isLoadingKursus.value = true

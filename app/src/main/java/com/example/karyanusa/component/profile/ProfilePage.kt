@@ -376,7 +376,8 @@ fun ProfilePage(navController: NavController) {
                             tokenManager.saveToken(
                                 token = token,
                                 userId = userId.toString(),
-                                userName = nama
+                                name = nama,
+                                username = username // 🔥 JANGAN HILANG
                             )
 
                             Toast.makeText(context, "Profil berhasil diperbarui!", Toast.LENGTH_SHORT).show()

@@ -54,7 +54,6 @@ fun BerandaPage(
     val userId = tokenManager.getUserId()
     val userName = tokenManager.getUserName() ?: "User"
 
-    // Collect data dari ViewModel
     val kursusList by viewModel.kursusList.collectAsState()
     val enrollmentsList by viewModel.enrollmentsList.collectAsState()
     val myKaryaList by viewModel.myKaryaList.collectAsState()
@@ -63,7 +62,6 @@ fun BerandaPage(
     val isLoadingEnrollments by viewModel.isLoadingEnrollments.collectAsState()
     val isLoadingKarya by viewModel.isLoadingKarya.collectAsState()
 
-    // Load data saat pertama kali
     LaunchedEffect(Unit) {
         viewModel.loadAllData(token, userId)
     }
@@ -135,8 +133,6 @@ fun BerandaPage(
                 .background(Color.White)
                 .verticalScroll(rememberScrollState())
         ) {
-
-            // Header dengan nama user
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -155,12 +151,10 @@ fun BerandaPage(
                     )
                 }
             }
-
             Spacer(Modifier.height(16.dp))
 
-            // FEATURED CLASS
-            SectionHeader(title = "FEATURED CLASS", onSeeAll = { navController.navigate("kursus") })
 
+            SectionHeader(title = "FEATURED CLASS", onSeeAll = { navController.navigate("kursus") })
             if (isLoadingKursus && kursusList.isEmpty()) {
                 Box(
                     modifier = Modifier
@@ -238,9 +232,8 @@ fun BerandaPage(
 
             Spacer(Modifier.height(20.dp))
 
-            // MY CLASSES
-            SectionHeader(title = "MY CLASSES", onSeeAll = { navController.navigate("profile") })
 
+            SectionHeader(title = "MY CLASSES", onSeeAll = { navController.navigate("profile") })
             if (isLoadingEnrollments && enrollmentsList.isEmpty()) {
                 Box(
                     modifier = Modifier
@@ -330,12 +323,11 @@ fun BerandaPage(
 
             Spacer(Modifier.height(20.dp))
 
-            // MY GALLERY
+
             SectionHeader(
                 title = "MY GALLERY",
                 onSeeAll = { navController.navigate("galeri") }
             )
-
             if (isLoadingKarya && myKaryaList.isEmpty()) {
                 Box(
                     modifier = Modifier
@@ -377,7 +369,6 @@ fun BerandaPage(
                                 .fillMaxWidth()
                                 .aspectRatio(1f)
                                 .clickable {
-                                    // Navigate ke detail jika perlu
                                 },
                             colors = CardDefaults.cardColors(containerColor = Color.White),
                             elevation = CardDefaults.cardElevation(4.dp)

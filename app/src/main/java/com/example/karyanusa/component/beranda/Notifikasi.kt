@@ -36,17 +36,14 @@ import retrofit2.Response
 @Composable
 fun NotifikasiPage(navController: NavController) {
 
-    // ===== TOKEN =====
     val context = LocalContext.current
     val tokenManager = remember { LoginTokenManager(context) }
     val bearerToken = tokenManager.getBearerToken()
 
-    // ===== STATE =====
     var notifikasiList by remember { mutableStateOf<List<Notifikasi>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
 
-    // ===== LOAD DATA =====
     LaunchedEffect(bearerToken) {
         if (bearerToken == null) {
             errorMsg = "Silakan login terlebih dahulu"
@@ -79,8 +76,6 @@ fun NotifikasiPage(navController: NavController) {
             })
     }
 
-
-    // ===== WARNA =====
     val pinkMuda = Color(0xFFFFE4EC)
     val pinkTua = Color(0xFF4A0E24)
 
@@ -169,7 +164,6 @@ fun NotifikasiPage(navController: NavController) {
                         Spacer(Modifier.height(8.dp))
                         Button(
                             onClick = {
-                                // Retry
                                 isLoading = true
                                 errorMsg = null
                                 navController.navigate("notifikasi") {
@@ -215,15 +209,12 @@ fun NotifikasiPage(navController: NavController) {
                                     .fillMaxWidth()
                                     .padding(vertical = 8.dp)
                                     .clickable {
-
-                                        // === 1. UPDATE UI LOKAL ===
                                         notifikasiList = notifikasiList.map {
                                             if (it.notif_id == notif.notif_id)
                                                 it.copy(is_read = 1)
                                             else it
                                         }
 
-                                        // === 2. UPDATE BACKEND ===
                                         bearerToken?.let { token ->
                                             markAsRead(
                                                 token = token,
@@ -231,7 +222,6 @@ fun NotifikasiPage(navController: NavController) {
                                             ) {}
                                         }
 
-                                        // === 3. NAVIGASI SESUAI TIPE ===
                                         when (notif.type) {
                                             "share_kursus" -> {
                                                 notif.related_id?.let { id ->

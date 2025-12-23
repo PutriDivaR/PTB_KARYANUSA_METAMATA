@@ -40,7 +40,6 @@ fun EditKaryaPage(
     var deskripsi by remember { mutableStateOf("") }
     var isSaving by remember { mutableStateOf(false) }
 
-    // Cek token dulu
     if (token == null) {
         LaunchedEffect(Unit) {
             Toast.makeText(context, "Harap login terlebih dahulu", Toast.LENGTH_SHORT).show()
@@ -51,7 +50,6 @@ fun EditKaryaPage(
         return
     }
 
-    // Load data karya
     LaunchedEffect(Unit) {
         RetrofitClient.instance.getMyKarya("Bearer $token")
             .enqueue(object : Callback<KaryaResponse> {
@@ -80,7 +78,6 @@ fun EditKaryaPage(
             })
     }
 
-    // Loading state
     if (loading) {
         Box(
             modifier = Modifier.fillMaxSize(),
@@ -91,7 +88,6 @@ fun EditKaryaPage(
         return
     }
 
-    // Karya tidak ditemukan
     if (karya == null) {
         Box(
             modifier = Modifier.fillMaxSize(),

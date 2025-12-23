@@ -110,12 +110,15 @@ fun ForumAddPage(navController: NavController) {
     val token = tokenManager.getToken()
     val userId = tokenManager.getUserId()
 
-    // 🔥 PERBAIKAN: Ambil nama dari token (sama seperti ProfilePage)
-    val currentUserDisplayName = tokenManager.getUserName()?.takeIf { it.isNotBlank() } ?: "Pengguna"
+    val currentUserDisplayName = remember {
+        val prefs = context.getSharedPreferences("LoginToken", Context.MODE_PRIVATE)
+        prefs.getString("user_name", null)?.takeIf { it.isNotBlank() } ?: "Pengguna"
+    }
 
-    // 🔥 PERBAIKAN: Username auto-generate dari nama (sama seperti ProfilePage)
-    val currentUserUsername =
-        tokenManager.getUsername()?.takeIf { it.isNotBlank() } ?: "user"
+    val currentUserUsername = remember {
+        val prefs = context.getSharedPreferences("LoginToken", Context.MODE_PRIVATE)
+        prefs.getString("user_username", null)?.takeIf { it.isNotBlank() } ?: "user"
+    }
 
     val currentUserPhotoUrl = remember {
         val prefs = context.getSharedPreferences("LoginToken", Context.MODE_PRIVATE)

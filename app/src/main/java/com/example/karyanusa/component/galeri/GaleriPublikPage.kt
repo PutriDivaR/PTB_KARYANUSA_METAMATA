@@ -31,21 +31,17 @@ fun GaleriPublikPage(
 ) {
     val context = LocalContext.current
 
-    // Collect states dari ViewModel
     val filteredKaryaList by viewModel.filteredKaryaList.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
 
-    // State untuk dialog
     var selectedItem by remember { mutableStateOf<KaryaEntity?>(null) }
 
-    // Load data setiap kali halaman dibuka
     LaunchedEffect(Unit) {
         viewModel.loadAllKarya()
     }
 
-    // Handle error message
     LaunchedEffect(errorMessage) {
         errorMessage?.let {
             Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
@@ -59,7 +55,6 @@ fun GaleriPublikPage(
             .background(Color(0xFFFFF5F7))
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // Search Bar
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { viewModel.updateSearchQuery(it) },
@@ -74,9 +69,7 @@ fun GaleriPublikPage(
                 )
             )
 
-            // Content
             when {
-                // Loading pertama kali
                 isLoading -> {
                     Box(
                         modifier = Modifier.fillMaxSize(),
@@ -96,7 +89,6 @@ fun GaleriPublikPage(
                     }
                 }
 
-                // Data kosong setelah search
                 filteredKaryaList.isEmpty() && searchQuery.isNotBlank() -> {
                     Box(
                         modifier = Modifier.fillMaxSize(),
@@ -118,7 +110,6 @@ fun GaleriPublikPage(
                     }
                 }
 
-                // Data kosong
                 filteredKaryaList.isEmpty() -> {
                     Box(
                         modifier = Modifier.fillMaxSize(),
@@ -140,7 +131,6 @@ fun GaleriPublikPage(
                     }
                 }
 
-                // Ada data
                 else -> {
                     LazyColumn(
                         contentPadding = PaddingValues(12.dp),
@@ -157,7 +147,6 @@ fun GaleriPublikPage(
             }
         }
 
-        // Detail Dialog
         if (selectedItem != null) {
             DetailKaryaDialog(
                 karya = selectedItem!!,
@@ -180,7 +169,7 @@ private fun KaryaPublikCard(
         colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
         Column {
-            // Image
+
             SubcomposeAsyncImage(
                 model = "http://10.0.2.2:8000/storage/${karya.gambar}",
                 contentDescription = karya.judul,
@@ -227,7 +216,6 @@ private fun KaryaPublikCard(
                 }
             )
 
-            // Info
             Column(modifier = Modifier.padding(12.dp)) {
                 Text(
                     text = karya.judul,
@@ -248,7 +236,6 @@ private fun KaryaPublikCard(
 
                 Spacer(Modifier.height(8.dp))
 
-                // Views & Likes
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     verticalAlignment = Alignment.CenterVertically

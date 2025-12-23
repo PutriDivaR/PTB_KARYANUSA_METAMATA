@@ -258,26 +258,30 @@ fun ForumDetailPage(
 
     fun formatTanggal(tanggal: String): String {
         return try {
+            // FORMAT INPUT DARI SERVER (UTC)
             val inputFormat = SimpleDateFormat(
                 "yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'",
-                Locale.getDefault()
-            )
-            val indonesiaLocale = Locale.Builder().setLanguage("id").setRegion("ID").build()
-            val outputFormat = SimpleDateFormat("dd MMM yyyy, HH:mm", indonesiaLocale)
+                Locale.US
+            ).apply {
+                timeZone = TimeZone.getTimeZone("UTC") // 🔥 WAJIB
+            }
+
+            // FORMAT OUTPUT KE WAKTU LOKAL (WIB)
+            val outputFormat = SimpleDateFormat(
+                "dd MMM yyyy, HH:mm",
+                Locale("id", "ID")
+            ).apply {
+                timeZone = TimeZone.getTimeZone("Asia/Jakarta") // 🔥 WAJIB
+            }
+
             val date = inputFormat.parse(tanggal)
             outputFormat.format(date ?: Date())
 
         } catch (e: Exception) {
-            try {
-                val inputFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-                val outputFormat = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale("id", "ID"))
-                val date = inputFormat.parse(tanggal)
-                outputFormat.format(date ?: Date())
-            } catch (e: Exception) {
-                tanggal
-            }
+            tanggal
         }
     }
+
 
     fun isEdited(tanggal: String, updatedAt: String?): Boolean {
         if (updatedAt == null || updatedAt.isEmpty()) return false

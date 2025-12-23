@@ -317,27 +317,30 @@ fun ForumEditPage(
 
     fun formatTanggal(tanggal: String): String {
         return try {
-            val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'", Locale.getDefault())
+            // FORMAT INPUT DARI SERVER (UTC)
+            val inputFormat = SimpleDateFormat(
+                "yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'",
+                Locale.US
+            ).apply {
+                timeZone = TimeZone.getTimeZone("UTC") // 🔥 WAJIB
+            }
+
+            // FORMAT OUTPUT KE WAKTU LOKAL (WIB)
             val outputFormat = SimpleDateFormat(
                 "dd MMM yyyy, HH:mm",
-                Locale.Builder().setLanguage("id").setRegion("ID").build()
-            )
+                Locale("id", "ID")
+            ).apply {
+                timeZone = TimeZone.getTimeZone("Asia/Jakarta") // 🔥 WAJIB
+            }
+
             val date = inputFormat.parse(tanggal)
             outputFormat.format(date ?: Date())
-        } catch (_: Exception) {
-            try {
-                val inputFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-                val outputFormat = SimpleDateFormat(
-                    "dd MMM yyyy, HH:mm",
-                    Locale.Builder().setLanguage("id").setRegion("ID").build()
-                )
-                val date = inputFormat.parse(tanggal)
-                outputFormat.format(date ?: Date())
-            } catch (_: Exception) {
-                tanggal
-            }
+
+        } catch (e: Exception) {
+            tanggal
         }
     }
+
 
     LaunchedEffect(questionId) {
         loadQuestionForEdit()

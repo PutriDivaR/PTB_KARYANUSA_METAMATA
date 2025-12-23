@@ -61,18 +61,12 @@ class MainActivity : ComponentActivity() {
                             navController.navigate("detail_kursus/$relatedId")
                         }
                         "like" -> {
-                            // PERUBAHAN: Panggil rute 'galeri' dengan argumen
                             navController.navigate("galeri?initialTab=pribadi")
                         }
 
                         "view_milestone" -> {
                             navController.navigate("galeri?initialTab=pribadi")
                         }
-
-                        //untuk wanda hapus aja '//' nya
-                        //"forum" -> {
-                        //navController.navigate("galeri?initialTab=pribadi") //ganti navigasi nya nanti
-                        // }
                     }
                 }
 

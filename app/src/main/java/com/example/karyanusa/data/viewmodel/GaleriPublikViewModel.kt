@@ -17,7 +17,6 @@ class GaleriPublikViewModel(application: Application) : AndroidViewModel(applica
     private val api = RetrofitClient.instance
     private val karyaRepository = KaryaRepository(api, database.karyaDao())
 
-    // StateFlows untuk UI
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
@@ -27,15 +26,12 @@ class GaleriPublikViewModel(application: Application) : AndroidViewModel(applica
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
-    // Data karya dari Room Database (auto-update)
     private val allKaryaFlow = karyaRepository.getAllKarya()
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = emptyList()
         )
-
-    // Filtered karya berdasarkan search query
     val filteredKaryaList: StateFlow<List<KaryaEntity>> = combine(
         allKaryaFlow,
         _searchQuery
@@ -57,10 +53,8 @@ class GaleriPublikViewModel(application: Application) : AndroidViewModel(applica
 
     private var isFirstLoad = true
 
-    // Load semua karya publik (hanya 1 kali)
     fun loadAllKarya() {
         if (!isFirstLoad) {
-            // Sudah loaded, refresh di background
             refreshInBackground()
             return
         }
@@ -82,7 +76,6 @@ class GaleriPublikViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
-    // Refresh di background tanpa loading indicator
     private fun refreshInBackground() {
         viewModelScope.launch {
             try {
@@ -94,17 +87,14 @@ class GaleriPublikViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
-    // Update search query
     fun updateSearchQuery(query: String) {
         _searchQuery.value = query
     }
 
-    // Clear error message
     fun clearError() {
         _errorMessage.value = null
     }
 
-    // Get karya by ID (untuk detail)
     suspend fun getKaryaById(galeriId: Int): KaryaEntity? {
         return database.karyaDao().getKaryaById(galeriId)
     }

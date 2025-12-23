@@ -17,7 +17,6 @@ class GaleriViewModel(application: Application) : AndroidViewModel(application) 
     private val api = RetrofitClient.instance
     private val karyaRepository = KaryaRepository(api, database.karyaDao())
 
-    // StateFlows untuk UI
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
@@ -30,7 +29,6 @@ class GaleriViewModel(application: Application) : AndroidViewModel(application) 
     private val _deleteSuccess = MutableStateFlow(false)
     val deleteSuccess: StateFlow<Boolean> = _deleteSuccess.asStateFlow()
 
-    // Data karya pribadi dari Room (auto-update)
     private val _currentUserId = MutableStateFlow<Int?>(null)
 
     val myKaryaList: StateFlow<List<KaryaEntity>> = _currentUserId
@@ -47,10 +45,8 @@ class GaleriViewModel(application: Application) : AndroidViewModel(application) 
             initialValue = emptyList()
         )
 
-    // Load & Sync karya pribadi (hanya 1 kali)
     fun loadMyKarya(token: String, userId: Int) {
         if (_currentUserId.value == userId && !_isLoading.value) {
-            // Sudah loaded, langsung refresh di background
             refreshInBackground(token, userId)
             return
         }
@@ -72,7 +68,6 @@ class GaleriViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    // Refresh di background tanpa loading indicator
     private fun refreshInBackground(token: String, userId: Int) {
         viewModelScope.launch {
             try {
@@ -84,7 +79,6 @@ class GaleriViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    // Hapus karya (delete dari API + Room)
     fun deleteKarya(token: String, galeriId: Int, userId: Int) {
         viewModelScope.launch {
             _isDeleting.value = true
@@ -92,13 +86,11 @@ class GaleriViewModel(application: Application) : AndroidViewModel(application) 
             _errorMessage.value = null
 
             try {
-                // Delete dari API + Room
                 karyaRepository.deleteKarya(token, galeriId)
 
                 _deleteSuccess.value = true
                 Log.d("GaleriVM", "Karya deleted: $galeriId")
 
-                // Auto refresh setelah delete
                 refreshInBackground(token, userId)
             } catch (e: Exception) {
                 Log.e("GaleriVM", "Error deleting: ${e.message}")
@@ -109,12 +101,10 @@ class GaleriViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    // Reset delete success state
     fun resetDeleteSuccess() {
         _deleteSuccess.value = false
     }
 
-    // Clear error message
     fun clearError() {
         _errorMessage.value = null
     }
