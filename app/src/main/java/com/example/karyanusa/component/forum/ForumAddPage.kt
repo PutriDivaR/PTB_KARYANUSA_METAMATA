@@ -69,7 +69,6 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 
-// Helper object untuk membuat file gambar sementara
 object ImageUtils {
     fun createImageUri(context: Context): Uri? {
         val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
@@ -91,38 +90,36 @@ fun ForumAddPage(navController: NavController) {
     var question by remember { mutableStateOf("") }
     val imageUris = remember { mutableStateListOf<Uri>() }
 
-    // State untuk UI
     var isPosting by remember { mutableStateOf(false) }
 
-    // State untuk list pertanyaan
     var myQuestions by remember { mutableStateOf<List<ForumPertanyaanResponse>>(emptyList()) }
     var selectedFilter by remember { mutableStateOf("all") }
     var isLoadingQuestions by remember { mutableStateOf(false) }
 
-    // State untuk delete
     var showDeleteDialog by remember { mutableStateOf(false) }
     var questionToDelete by remember { mutableStateOf<Int?>(null) }
     var isDeleting by remember { mutableStateOf(false) }
 
-    // Context dan manager untuk info user & token
     val context = LocalContext.current
     val tokenManager = remember { LoginTokenManager(context) }
     val token = tokenManager.getToken()
     val userId = tokenManager.getUserId()
 
-    // 🔥 PERBAIKAN: Ambil nama dari token (sama seperti ProfilePage)
-    val currentUserDisplayName = tokenManager.getUserName()?.takeIf { it.isNotBlank() } ?: "Pengguna"
+    val currentUserDisplayName = remember {
+        val prefs = context.getSharedPreferences("LoginToken", Context.MODE_PRIVATE)
+        prefs.getString("user_name", null)?.takeIf { it.isNotBlank() } ?: "Pengguna"
+    }
 
-    // 🔥 PERBAIKAN: Username auto-generate dari nama (sama seperti ProfilePage)
-    val currentUserUsername =
-        tokenManager.getUsername()?.takeIf { it.isNotBlank() } ?: "user"
+    val currentUserUsername = remember {
+        val prefs = context.getSharedPreferences("LoginToken", Context.MODE_PRIVATE)
+        prefs.getString("user_username", null)?.takeIf { it.isNotBlank() } ?: "user"
+    }
 
     val currentUserPhotoUrl = remember {
         val prefs = context.getSharedPreferences("LoginToken", Context.MODE_PRIVATE)
         prefs.getString("user_foto_profile", null)
     }
 
-    // --- Launchers untuk gambar & izin ---
     var cameraImageUri by remember { mutableStateOf<Uri?>(null) }
 
     val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
@@ -183,7 +180,6 @@ fun ForumAddPage(navController: NavController) {
     var showCancelDialog by remember { mutableStateOf(false) }
 
 
-    // Fungsi untuk format tanggal
     fun formatTanggal(tanggal: String): String {
         val indonesiaLocale = Locale.Builder().setLanguage("id").setRegion("ID").build()
         return try {
@@ -205,7 +201,7 @@ fun ForumAddPage(navController: NavController) {
         }
     }
 
-    // Fungsi untuk load pertanyaan saya
+
     fun loadMyQuestions() {
         if (token.isNullOrEmpty()) return
 
@@ -229,12 +225,10 @@ fun ForumAddPage(navController: NavController) {
             })
     }
 
-    // Load pertanyaan saat pertama kali
     LaunchedEffect(Unit) {
         loadMyQuestions()
     }
 
-    // Filter pertanyaan berdasarkan status
     val filteredQuestions = remember(myQuestions, selectedFilter) {
         when (selectedFilter) {
             "answered" -> myQuestions.filter { !it.jawaban.isNullOrEmpty() }
@@ -243,7 +237,6 @@ fun ForumAddPage(navController: NavController) {
         }
     }
 
-    // Hitung jumlah untuk chips
     val allCount = myQuestions.size
     val unansweredCount = myQuestions.count { it.jawaban.isNullOrEmpty() }
     val answeredCount = myQuestions.count { !it.jawaban.isNullOrEmpty() }
@@ -279,7 +272,6 @@ fun ForumAddPage(navController: NavController) {
     }
 
     fun postQuestion() {
-        // Validasi input
         if (question.isBlank()) {
             Toast.makeText(context, "Pertanyaan harus diisi", Toast.LENGTH_SHORT).show()
             return
@@ -362,11 +354,9 @@ fun ForumAddPage(navController: NavController) {
                     Log.d("ForumAddPage", "✓ SUCCESS: Pertanyaan ID = ${result?.pertanyaan_id}")
                     Toast.makeText(context, "Pertanyaan berhasil diposting!", Toast.LENGTH_LONG).show()
 
-                    // Reset form
                     question = ""
                     imageUris.clear()
 
-                    // Reload list pertanyaan
                     loadMyQuestions()
                 } else {
                     val errorBody = response.errorBody()?.string()
@@ -425,7 +415,6 @@ fun ForumAddPage(navController: NavController) {
                 navigationIcon = {
                     IconButton(onClick = {
                         if (!isPosting) {
-                            // Cek apakah ada perubahan
                             if (question.isNotBlank() || imageUris.isNotEmpty()) {
                                 showCancelDialog = true
                             } else {
@@ -479,20 +468,16 @@ fun ForumAddPage(navController: NavController) {
                     .padding(innerPadding)
                     .fillMaxSize()
             ) {
-                // Form Input Pertanyaan
                 item {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        // Info User
-                        // Info User
+
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            // 🔥 AVATAR - Prioritas: Foto profil > Inisial
                             Box(
                                 modifier = Modifier
                                     .size(45.dp)
                                     .clip(CircleShape)
                             ) {
                                 if (!currentUserPhotoUrl.isNullOrEmpty()) {
-                                    // Tampilkan foto profil jika ada
                                     Image(
                                         painter = rememberAsyncImagePainter(
                                             coil.request.ImageRequest.Builder(context)
@@ -507,7 +492,6 @@ fun ForumAddPage(navController: NavController) {
                                         contentScale = ContentScale.Crop
                                     )
                                 } else {
-                                    // Tampilkan inisial jika tidak ada foto
                                     Box(
                                         modifier = Modifier
                                             .fillMaxSize()
@@ -545,7 +529,6 @@ fun ForumAddPage(navController: NavController) {
 
                         Spacer(Modifier.height(16.dp))
 
-                        // Input Pertanyaan
                         BasicTextField(
                             value = question,
                             onValueChange = { question = it },
@@ -565,7 +548,6 @@ fun ForumAddPage(navController: NavController) {
 
                         Spacer(Modifier.height(12.dp))
 
-                        // Preview Gambar
                         if (imageUris.isNotEmpty()) {
                             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 itemsIndexed(imageUris) { index, uri ->
@@ -610,7 +592,6 @@ fun ForumAddPage(navController: NavController) {
                             )
                         }
 
-                        // Tombol-tombol Aksi
                         Row(
                             Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -667,7 +648,6 @@ fun ForumAddPage(navController: NavController) {
                     }
                 }
 
-                // Section Pertanyaan Saya
                 item {
                     Column(modifier = Modifier.padding(horizontal = 16.dp)) {
                         Text(
@@ -678,7 +658,6 @@ fun ForumAddPage(navController: NavController) {
                         )
                         Spacer(Modifier.height(12.dp))
 
-                        // Filter Chips
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
@@ -703,7 +682,6 @@ fun ForumAddPage(navController: NavController) {
                     }
                 }
 
-                // List Pertanyaan
                 if (isLoadingQuestions) {
                     item {
                         Box(
@@ -768,7 +746,6 @@ fun ForumAddPage(navController: NavController) {
                 }
             }
 
-            // Loading Overlay saat posting
             if (isPosting) {
                 Box(
                     modifier = Modifier
@@ -781,7 +758,6 @@ fun ForumAddPage(navController: NavController) {
             }
         }
 
-        // Delete Dialog
         if (showDeleteDialog && questionToDelete != null) {
             AlertDialog(
                 onDismissRequest = {
@@ -873,7 +849,6 @@ fun ForumAddPage(navController: NavController) {
             )
         }
 
-        // Image Preview Dialog
         if (showImagePreview) {
             ImagePreviewDialog(
                 images = imageUris,
@@ -995,7 +970,6 @@ fun QuestionCardItem(
                             contentScale = ContentScale.Crop
                         )
                     } else {
-                        // Tampilkan inisial jika tidak ada foto
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -1227,7 +1201,6 @@ fun ImagePreviewDialog(
                 .fillMaxSize()
                 .background(Color.Black)
         ) {
-            // Pager untuk swipe gambar
             HorizontalPager(
                 count = images.size,
                 state = pagerState,
@@ -1270,7 +1243,7 @@ fun ImagePreviewDialog(
                 }
             }
 
-            // Tombol Close
+
             IconButton(
                 onClick = onDismiss,
                 modifier = Modifier
@@ -1285,7 +1258,6 @@ fun ImagePreviewDialog(
                 )
             }
 
-            // Indicator (titik-titik di bawah)
             if (images.size > 1) {
                 HorizontalPagerIndicator(
                     pagerState = pagerState,
@@ -1297,7 +1269,6 @@ fun ImagePreviewDialog(
                 )
             }
 
-            // Counter gambar
             Text(
                 text = "${pagerState.currentPage + 1} / ${images.size}",
                 color = Color.White,

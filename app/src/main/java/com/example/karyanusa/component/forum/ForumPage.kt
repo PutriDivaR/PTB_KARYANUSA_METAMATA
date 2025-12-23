@@ -47,7 +47,6 @@ import java.util.*
 @Composable
 fun ForumPage(navController: NavController) {
 
-    // State untuk tab dan filter
     var selectedTab by remember { mutableStateOf("all") }
     var selectedFilter by remember { mutableStateOf("all") }
 
@@ -55,20 +54,16 @@ fun ForumPage(navController: NavController) {
     val tokenManager = remember { LoginTokenManager(context) }
     val token = tokenManager.getToken()
 
-    // ViewModel
     val viewModel: ForumViewModel = viewModel()
     val uiState by viewModel.uiState.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val deleteState by viewModel.deleteState.collectAsState()
 
-    // State untuk delete dialog
     var showDeleteDialog by remember { mutableStateOf(false) }
     var questionToDelete by remember { mutableStateOf<Int?>(null) }
 
-    // ✅ PERBAIKAN: Ambil user ID dari token
     val currentUserId = tokenManager.getUserId()
 
-    // ✅ Fungsi format tanggal
     fun formatTanggal(tanggal: String): String {
         val indonesiaLocale = Locale.Builder().setLanguage("id").setRegion("ID").build()
         return try {
@@ -90,7 +85,6 @@ fun ForumPage(navController: NavController) {
         }
     }
 
-    // ✅ BARU: Fungsi untuk cek apakah pertanyaan sudah diedit
     fun isQuestionEdited(tanggal: String, updatedAt: String?): Boolean {
         if (updatedAt == null || updatedAt.isEmpty()) return false
         if (tanggal == updatedAt) return false
@@ -111,13 +105,11 @@ fun ForumPage(navController: NavController) {
         }
     }
 
-    // ✅ FIX: Lifecycle observer untuk auto-refresh saat kembali ke halaman
     val lifecycleOwner = LocalLifecycleOwner.current
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                // Refresh data setiap kali halaman muncul kembali
                 if (!token.isNullOrEmpty()) {
                     viewModel.refreshPertanyaan(token)
                 }
@@ -131,19 +123,16 @@ fun ForumPage(navController: NavController) {
         }
     }
 
-    // Load data pertama kali
     LaunchedEffect(token) {
         if (!token.isNullOrEmpty()) {
             viewModel.loadPertanyaan(token)
         }
     }
 
-    // ✅ Filter pertanyaan berdasarkan tab dan filter (FIX: gunakan currentUserId dari token)
     val filteredQuestions = remember(uiState, selectedTab, selectedFilter, currentUserId) {
         viewModel.getFilteredQuestions(selectedTab, selectedFilter, currentUserId)
     }
 
-    // ✅ Hitung jumlah untuk filter chips (FIX: gunakan currentUserId dari token)
     val filterCounts = remember(uiState, selectedTab, currentUserId) {
         viewModel.getFilterCounts(selectedTab, currentUserId)
     }
@@ -152,7 +141,6 @@ fun ForumPage(navController: NavController) {
     val unansweredCount = filterCounts.unanswered
     val answeredCount = filterCounts.answered
 
-    // Handle delete success/error
     LaunchedEffect(deleteState) {
         when (deleteState) {
             is DeleteState.Success -> {
@@ -289,7 +277,6 @@ fun ForumPage(navController: NavController) {
                             )
                         }
 
-                        // Filter Chips
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -317,7 +304,6 @@ fun ForumPage(navController: NavController) {
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        // List Pertanyaan
                         if (filteredQuestions.isEmpty()) {
                             Box(
                                 modifier = Modifier
@@ -370,7 +356,6 @@ fun ForumPage(navController: NavController) {
                 }
             }
 
-            // ✅ Delete Dialog
             if (showDeleteDialog && questionToDelete != null) {
                 val isDeleting = deleteState is DeleteState.Deleting
 
@@ -436,7 +421,6 @@ fun ForumPage(navController: NavController) {
     }
 }
 
-// Sub-komponen
 @Composable
 fun TabButton(text: String, isSelected: Boolean, onClick: () -> Unit) {
     Text(
@@ -496,19 +480,18 @@ fun QuestionCard(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
 
-            // Header: Avatar, Nama, Username, dan Menu
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // 🔥 AVATAR - Prioritas: Foto profil > Inisial
+
                 Box(
                     modifier = Modifier
                         .size(45.dp)
                         .clip(CircleShape)
                 ) {
                     if (!question.user?.foto_profile.isNullOrEmpty()) {
-                        // Tampilkan foto profil jika ada
+
                         Image(
                             painter = rememberAsyncImagePainter(
                                 ImageRequest.Builder(LocalContext.current)
@@ -523,7 +506,7 @@ fun QuestionCard(
                             contentScale = ContentScale.Crop
                         )
                     } else {
-                        // Tampilkan inisial jika tidak ada foto
+
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -543,7 +526,6 @@ fun QuestionCard(
                 Spacer(modifier = Modifier.width(10.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
-                    // Nama
                     Text(
                         text = question.user?.nama ?: "Anonymous",
                         fontWeight = FontWeight.Bold,
@@ -551,7 +533,6 @@ fun QuestionCard(
                         fontSize = 14.sp
                     )
                     Spacer(modifier = Modifier.height(0.dp))
-                    // Username
                     Text(
                         text = "@${question.user?.username ?: "user"}",
                         color = Color.Gray,
@@ -586,7 +567,6 @@ fun QuestionCard(
             }
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Isi Pertanyaan
             Text(
                 text = question.isi,
                 fontSize = 14.sp,
@@ -594,7 +574,6 @@ fun QuestionCard(
                 lineHeight = 20.sp
             )
 
-            // Layout Gambar
             if (imageUrls.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -712,7 +691,6 @@ fun QuestionCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Balasan dan Tanggal
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -734,7 +712,6 @@ fun QuestionCard(
                     )
                 }
 
-                // ✅ BARU: Tanggal dengan badge "edited"
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = formatTanggal(question.tanggal),
@@ -742,7 +719,6 @@ fun QuestionCard(
                         fontSize = 11.sp
                     )
 
-                    // Badge "edited" jika pertanyaan sudah diedit
                     if (isEdited) {
                         Spacer(modifier = Modifier.width(6.dp))
                         Surface(

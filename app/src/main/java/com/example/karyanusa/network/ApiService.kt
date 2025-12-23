@@ -17,7 +17,6 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 
 
-// AUTH
 data class LoginRequest(
     val username: String,
     val password: String
@@ -50,9 +49,6 @@ data class UserData(
     val username: String,
     val foto_profile: String? = null
 )
-
-
-// KURSUS & MATERI
 
 data class Kursus(
     val kursus_id: Int,
@@ -153,7 +149,6 @@ data class ForumJawabanResponse(
     val notification_sent: Boolean? = false
 )
 
-// Notifikasi Class
 data class Notifikasi(
     val notif_id: Int,
     val from_user: Int,
@@ -168,7 +163,7 @@ data class Notifikasi(
 
 data class LikeResponse(
     val status: Boolean,
-    val action: String, // "liked" atau "unliked"
+    val action: String,
     val message: String,
     val likes: Int,
     val is_liked: Boolean
@@ -195,20 +190,14 @@ data class ProfileData(
 )
 
 
-
-
-// API SERVICE
-
 interface ApiService {
 
-    // --- Auth ---
     @POST("api/login")
     fun loginUser(@Body request: LoginRequest): Call<LoginResponse>
 
     @POST("api/register")
     fun registerUser(@Body request: RegisterRequest): Call<RegisterResponse>
 
-    // --- Kursus ---
     @GET("api/courses")
     fun getCourses(): Call<List<Kursus>>
 
@@ -222,8 +211,6 @@ interface ApiService {
         @Path("kursus_id") kursusId: Int
     ): Call<List<Materi>>
 
-
-    // ✅ Upload Karya (tambah token)
     @Multipart
     @POST("api/karya/upload")
     fun uploadKarya(
@@ -233,17 +220,14 @@ interface ApiService {
         @Part("deskripsi") deskripsi: RequestBody
     ): Call<UploadResponse>
 
-    // ✅ Get Semua Karya (publik)
     @GET("api/karya")
     fun getKarya(): Call<KaryaResponse>
 
-    // ✅ Get Karya Pribadi (butuh token)
     @GET("api/karya/my")
     fun getMyKarya(
         @Header("Authorization") token: String
     ): Call<KaryaResponse>
 
-    // ✅ Delete Karya (butuh token)
     @DELETE("api/karya/{id}")
 
     fun deleteKarya(
@@ -251,7 +235,6 @@ interface ApiService {
         @Path("id") id: Int
     ): Call<SimpleResponse>
 
-    // ✅ Update Karya (tambah token)
     @Multipart
     @POST("api/karya/update/{id}")
     fun updateKarya(
@@ -263,7 +246,6 @@ interface ApiService {
     @POST("api/karya/{id}/view")
     fun incrementView(@Path("id") id: Int): Call<ViewResponse>
 
-    // --- Enrollment ---
     @POST("api/enroll")
     fun enrollCourse(
         @Header("Authorization") token: String,
@@ -282,9 +264,6 @@ interface ApiService {
         @Path("kursus_id") kursusId: Int
     ): Call<ResponseBody>
 
-
-
-    // --- Progress ---
     @POST("api/enroll/progress")
     fun updateProgress(
         @Header("Authorization") token: String,
@@ -295,7 +274,6 @@ interface ApiService {
     fun getEnrollments(
         @Header("Authorization") token: String
     ): Call<List<EnrollmentData>>
-
 
     @POST("api/materi/complete")
     fun tandaiMateriSelesai(
@@ -310,8 +288,6 @@ interface ApiService {
         @Path("materiId") materiId: Int
     ): Call<MateriCompletedResponse>
 
-
-    // Ambil semua pertanyaan forum
     @GET("api/pertanyaan")
     fun getPertanyaan(
         @Header("Authorization") token: String
@@ -331,7 +307,6 @@ interface ApiService {
         @Part image_forum: List<MultipartBody.Part>
     ): Call<ForumPertanyaanResponse>
 
-    // Tambah jawaban
     @Multipart
     @POST("api/pertanyaan/{id}/jawaban")
     fun tambahJawaban(
@@ -374,7 +349,6 @@ interface ApiService {
         @Part image_forum: List<MultipartBody.Part>?
     ): Call<ForumPertanyaanResponse>
 
-    // ✅ Delete Pertanyaan
     @DELETE("api/pertanyaan/{id}")
     fun deletePertanyaan(
         @Header("Authorization") token: String,
@@ -403,7 +377,6 @@ interface ApiService {
         @Path("id") notifId: Int
     ): Call<ResponseBody>
 
-
     @POST("api/karya/{galeri_id}/like")
     fun toggleLike(
         @Header("Authorization") token: String,
@@ -415,7 +388,6 @@ interface ApiService {
         @Header("Authorization") token: String,
         @Path("galeri_id") galeriId: Int
     ): Call<LikeCheckResponse>
-
 
     @POST("api/notifikasi/{id}/read")
     fun markNotifRead(

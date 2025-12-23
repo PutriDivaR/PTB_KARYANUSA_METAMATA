@@ -35,7 +35,6 @@ fun GaleriPribadiPage(
     val token = tokenManager.getBearerToken()
     val userId = tokenManager.getUserId()
 
-    // Collect states dari ViewModel
     val karyaList by viewModel.myKaryaList.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val isDeleting by viewModel.isDeleting.collectAsState()
@@ -48,7 +47,6 @@ fun GaleriPribadiPage(
     val pinkTua = Color(0xFF4A0E24)
     val background = Color(0xFFFFF5F7)
 
-    // Cek token dulu
     if (token == null || userId == null) {
         LaunchedEffect(Unit) {
             Toast.makeText(context, "Harap login terlebih dahulu", Toast.LENGTH_SHORT).show()
@@ -58,21 +56,16 @@ fun GaleriPribadiPage(
         }
         return
     }
-
-    // Load data setiap kali halaman dibuka (seperti DetailPage)
     LaunchedEffect(Unit) {
         viewModel.loadMyKarya(token, userId)
     }
 
-    // Handle error message
     LaunchedEffect(errorMessage) {
         errorMessage?.let {
             Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
             viewModel.clearError()
         }
     }
-
-    // Handle delete success
     LaunchedEffect(deleteSuccess) {
         if (deleteSuccess) {
             Toast.makeText(context, "Karya berhasil dihapus", Toast.LENGTH_SHORT).show()
@@ -87,7 +80,6 @@ fun GaleriPribadiPage(
             .fillMaxSize()
             .background(background)
     ) {
-        // Tombol Upload
         Button(
             onClick = { navController.navigate("upload") },
             colors = ButtonDefaults.buttonColors(containerColor = pinkTua),
@@ -100,9 +92,7 @@ fun GaleriPribadiPage(
             Text("Upload Karya Baru", color = Color.White)
         }
 
-        // Content
         when {
-            // Loading pertama kali
             isLoading -> {
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -112,7 +102,6 @@ fun GaleriPribadiPage(
                 }
             }
 
-            // Data kosong
             karyaList.isEmpty() -> {
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -134,7 +123,6 @@ fun GaleriPribadiPage(
                 }
             }
 
-            // Ada data
             else -> {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
@@ -158,7 +146,6 @@ fun GaleriPribadiPage(
         }
     }
 
-    // Dialog Konfirmasi Hapus
     if (showDialog && karyaDihapus != null) {
         DeleteConfirmationDialog(
             karya = karyaDihapus!!,
@@ -209,7 +196,6 @@ private fun KaryaCard(
                     fontSize = 13.sp
                 )
 
-                // Tampilan Views & Likes
                 Spacer(Modifier.height(6.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
@@ -237,7 +223,6 @@ private fun KaryaCard(
                 }
             }
 
-            // Tombol Edit
             IconButton(onClick = onEdit) {
                 Icon(
                     imageVector = Icons.Default.Edit,
@@ -246,7 +231,6 @@ private fun KaryaCard(
                 )
             }
 
-            // Tombol Hapus
             IconButton(onClick = onDelete) {
                 Icon(
                     imageVector = Icons.Default.Delete,

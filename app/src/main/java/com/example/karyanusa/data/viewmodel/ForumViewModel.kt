@@ -42,7 +42,7 @@ class ForumViewModel(application: Application) : AndroidViewModel(application) {
             repo.getPertanyaan(token).collect { result ->
                 result.fold(
                     onSuccess = { questions ->
-                        // ✅ DEBUG: Log jumlah pertanyaan dan status jawaban
+
                         Log.d(TAG, "Total pertanyaan: ${questions.size}")
                         questions.forEachIndexed { index, q ->
                             Log.d(TAG, "Pertanyaan #$index:")
@@ -123,22 +123,14 @@ class ForumViewModel(application: Application) : AndroidViewModel(application) {
         _deleteState.value = DeleteState.Idle
     }
 
-    // ✅ PERBAIKAN: Fungsi untuk cek apakah pertanyaan sudah dijawab
-    // Tambahkan berbagai cara pengecekan untuk menangani berbagai struktur data
     private fun isAnswered(question: ForumPertanyaanResponse): Boolean {
-        // Cek 1: Apakah jawaban tidak null dan tidak kosong
         val hasAnswers = question.jawaban?.isNotEmpty() == true
-
-        // Cek 2: Apakah ada field jumlah_jawaban (beberapa API menggunakan ini)
-        // Uncomment jika API Anda menggunakan field ini
-        // val hasJumlahJawaban = (question.jumlah_jawaban ?: 0) > 0
 
         Log.d(TAG, "isAnswered for pertanyaan ${question.pertanyaan_id}: $hasAnswers (jawaban=${question.jawaban})")
 
         return hasAnswers
     }
 
-    // ✅ Fungsi untuk mengurutkan berdasarkan tanggal terbaru
     private fun sortByNewest(questions: List<ForumPertanyaanResponse>): List<ForumPertanyaanResponse> {
         return questions.sortedByDescending { question ->
             try {
@@ -175,7 +167,6 @@ class ForumViewModel(application: Application) : AndroidViewModel(application) {
         Log.d(TAG, "getFilteredQuestions - tab: $tab, filter: $filter, userId: $currentUserId")
         Log.d(TAG, "Total questions before filter: ${questions.size}")
 
-        // Filter berdasarkan tab
         val tabFiltered = when (tab) {
             "my" -> questions.filter { it.user_id == currentUserId }
             else -> questions
@@ -183,7 +174,6 @@ class ForumViewModel(application: Application) : AndroidViewModel(application) {
 
         Log.d(TAG, "After tab filter: ${tabFiltered.size}")
 
-        // Filter berdasarkan status jawaban
         val result = when (filter) {
             "answered" -> {
                 val filtered = tabFiltered.filter { isAnswered(it) }

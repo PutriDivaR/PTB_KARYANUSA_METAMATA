@@ -117,7 +117,8 @@ fun LoginScreen(navController: NavController) {
                                 tokenManager.saveToken(
                                     token = body.token,
                                     userId = body.user_id,
-                                    userName = body.nama
+                                    name = body.nama,
+                                    username = body.username // 🔥 WAJIB
                                 )
 
                                 val fcm = tokenManager.getFcmToken()

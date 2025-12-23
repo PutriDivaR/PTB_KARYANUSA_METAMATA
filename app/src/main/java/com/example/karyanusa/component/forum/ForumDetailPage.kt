@@ -71,26 +71,21 @@ fun ForumDetailPage(
     val token = tokenManager.getToken()
     val currentUserId = tokenManager.getUserId()
 
-    // State untuk API
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var questionData by remember { mutableStateOf<ForumPertanyaanResponse?>(null) }
 
-    // State untuk reply
     var replyText by remember { mutableStateOf("") }
     val replyImages = remember { mutableStateListOf<Uri>() }
     var cameraImageUri by remember { mutableStateOf<Uri?>(null) }
     var isSendingReply by remember { mutableStateOf(false) }
 
-    // Maksimal gambar untuk balasan
     val maxReplyImages = 2
 
-    // State untuk image viewer
     var showImageViewer by remember { mutableStateOf(false) }
     var selectedImageIndex by remember { mutableIntStateOf(0) }
     var viewerImages by remember { mutableStateOf<List<String>>(emptyList()) }
 
-    // State untuk menu dan delete dialog
     var expandedMenu by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var isDeleting by remember { mutableStateOf(false) }
@@ -222,7 +217,6 @@ fun ForumDetailPage(
                 isSendingReply = false
 
                 if (response.isSuccessful) {
-                    // ✅ SEDERHANA: Tampilkan "Balasan terkirim" saja
                     Toast.makeText(
                         context,
                         "Balasan terkirim!",
@@ -260,24 +254,26 @@ fun ForumDetailPage(
         return try {
             val inputFormat = SimpleDateFormat(
                 "yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'",
-                Locale.getDefault()
-            )
-            val indonesiaLocale = Locale.Builder().setLanguage("id").setRegion("ID").build()
-            val outputFormat = SimpleDateFormat("dd MMM yyyy, HH:mm", indonesiaLocale)
+                Locale.US
+            ).apply {
+                timeZone = TimeZone.getTimeZone("UTC")
+            }
+
+            val outputFormat = SimpleDateFormat(
+                "dd MMM yyyy, HH:mm",
+                Locale("id", "ID")
+            ).apply {
+                timeZone = TimeZone.getTimeZone("Asia/Jakarta")
+            }
+
             val date = inputFormat.parse(tanggal)
             outputFormat.format(date ?: Date())
 
         } catch (e: Exception) {
-            try {
-                val inputFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-                val outputFormat = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale("id", "ID"))
-                val date = inputFormat.parse(tanggal)
-                outputFormat.format(date ?: Date())
-            } catch (e: Exception) {
-                tanggal
-            }
+            tanggal
         }
     }
+
 
     fun isEdited(tanggal: String, updatedAt: String?): Boolean {
         if (updatedAt == null || updatedAt.isEmpty()) return false
@@ -494,14 +490,12 @@ fun ForumDetailPage(
                                     modifier = Modifier.weight(1f),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    // 🔥 AVATAR PERTANYAAN - Prioritas: Foto profil > Inisial
                                     Box(
                                         modifier = Modifier
                                             .size(48.dp)
                                             .clip(CircleShape)
                                     ) {
                                         if (!data.user?.foto_profile.isNullOrEmpty()) {
-                                            // Tampilkan foto profil jika ada
                                             Image(
                                                 painter = rememberAsyncImagePainter(
                                                     coil.request.ImageRequest.Builder(LocalContext.current)
@@ -516,7 +510,6 @@ fun ForumDetailPage(
                                                 contentScale = ContentScale.Crop
                                             )
                                         } else {
-                                            // Tampilkan inisial jika tidak ada foto
                                             Box(
                                                 modifier = Modifier
                                                     .fillMaxSize()
@@ -882,20 +875,17 @@ fun ForumDetailPage(
 
                             Spacer(Modifier.height(8.dp))
 
-                            // ✅ DIPERBAIKI: Tanggal, jam, status edited sejajar dengan counter gambar
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                // Counter gambar di kiri
                                 Text(
                                     text = "${replyImages.size}/$maxReplyImages gambar",
                                     fontSize = 12.sp,
                                     color = Color.Gray
                                 )
 
-                                // Tanggal, jam, dan status edited di kanan
                                 Row(
                                     horizontalArrangement = Arrangement.End,
                                     verticalAlignment = Alignment.CenterVertically
@@ -967,14 +957,12 @@ fun ForumDetailPage(
                                     modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.Top
                                 ) {
-                                    // 🔥 AVATAR BALASAN - Prioritas: Foto profil > Inisial
                                     Box(
                                         modifier = Modifier
                                             .size(45.dp)
                                             .clip(CircleShape)
                                     ) {
                                         if (!reply.user?.foto_profile.isNullOrEmpty()) {
-                                            // Tampilkan foto profil jika ada
                                             Image(
                                                 painter = rememberAsyncImagePainter(
                                                     coil.request.ImageRequest.Builder(LocalContext.current)
@@ -989,7 +977,6 @@ fun ForumDetailPage(
                                                 contentScale = ContentScale.Crop
                                             )
                                         } else {
-                                            // Tampilkan inisial jika tidak ada foto
                                             Box(
                                                 modifier = Modifier
                                                     .fillMaxSize()

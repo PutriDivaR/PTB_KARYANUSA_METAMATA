@@ -18,13 +18,21 @@ class LoginTokenManager(context: Context) {
         private const val KEY_FCM_TOKEN = "fcm_token"
     }
 
-    fun saveToken(token: String?, userId: String?, userName: String?) {
+    fun saveToken(
+        token: String?,
+        userId: String?,
+        name: String?,
+        username: String?,
+
+    ) {
         prefs.edit()
             .putString(KEY_TOKEN, token)
             .putInt(KEY_USER_ID, userId?.toIntOrNull() ?: -1)
-            .putString(KEY_USER_NAME, userName)
+            .putString(KEY_USER_NAME, name)
+            .putString(KEY_USER_USERNAME, username)
             .apply()
     }
+
 
     fun getToken(): String? = prefs.getString(KEY_TOKEN, null)
 

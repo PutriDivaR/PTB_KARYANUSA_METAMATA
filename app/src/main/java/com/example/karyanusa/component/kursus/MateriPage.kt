@@ -52,8 +52,8 @@ fun MateriPage(navController: NavController, kursusId: Int) {
     var kursusList by remember { mutableStateOf<List<Kursus>>(emptyList()) }
     var materiList by remember { mutableStateOf<List<Materi>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
-    var enrollmentStatus by remember { mutableStateOf("none") } // none|ongoing|completed
-    var serverProgress by remember { mutableIntStateOf(0) } // 0-100
+    var enrollmentStatus by remember { mutableStateOf("none") }
+    var serverProgress by remember { mutableIntStateOf(0) }
 
     var watchedIds by rememberSaveable { mutableStateOf(setOf<Int>()) }
 
@@ -156,7 +156,7 @@ fun MateriPage(navController: NavController, kursusId: Int) {
     fun loadKursusMateri() {
         isLoading = true
 
-        // kursus
+
         RetrofitClient.instance.getCourses().enqueue(object : Callback<List<Kursus>> {
             override fun onResponse(call: Call<List<Kursus>>, response: Response<List<Kursus>>) {
                 if (response.isSuccessful) kursusList = response.body() ?: emptyList()
@@ -164,7 +164,7 @@ fun MateriPage(navController: NavController, kursusId: Int) {
             override fun onFailure(call: Call<List<Kursus>>, t: Throwable) { /* ignore */ }
         })
 
-        // materi di kursusnya
+
         RetrofitClient.instance.getMateriByKursus(kursusId).enqueue(object : Callback<List<Materi>> {
             override fun onResponse(call: Call<List<Materi>>, response: Response<List<Materi>>) {
                 if (response.isSuccessful) {
@@ -180,7 +180,7 @@ fun MateriPage(navController: NavController, kursusId: Int) {
         })
     }
 
-    // button tandai materi selesai
+
     fun tandaiMateriSelesai(materiId: Int) {
         if (token == null) {
             Toast.makeText(context, "Harus login dulu", Toast.LENGTH_SHORT).show()
@@ -228,7 +228,7 @@ fun MateriPage(navController: NavController, kursusId: Int) {
         })
     }
 
-    //  fullscreen player (ke VideoPlayerActivity)
+
     val materiIdTerakhir = remember { mutableIntStateOf(0) }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
 
@@ -240,7 +240,7 @@ fun MateriPage(navController: NavController, kursusId: Int) {
         }
     }
 
-    // load
+
     LaunchedEffect(kursusId) {
         loadKursusMateri()
     }
@@ -291,7 +291,6 @@ fun MateriPage(navController: NavController, kursusId: Int) {
                             .padding(bottom = innerPadding.calculateBottomPadding())
                     ) {
 
-                        // Header
                         Box {
                             Image(
                                 painter = rememberAsyncImagePainter(R.drawable.tessampul),
@@ -344,8 +343,6 @@ fun MateriPage(navController: NavController, kursusId: Int) {
                         )
                         Spacer(Modifier.height(12.dp))
 
-
-                        // Daftar materi
                         materiList.forEach { materi ->
                             val isWatched = materi.materi_id in watchedIds
 
@@ -359,7 +356,6 @@ fun MateriPage(navController: NavController, kursusId: Int) {
                             ) {
                                 Column(modifier = Modifier.padding(12.dp)) {
 
-                                    // Video area (embedded player)
                                     Box(
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -383,8 +379,6 @@ fun MateriPage(navController: NavController, kursusId: Int) {
                                             modifier = Modifier.fillMaxSize()
                                         )
 
-
-                                        // fullscreen button
                                         IconButton(
                                             onClick = {
                                                 materiIdTerakhir.intValue = materi.materi_id
@@ -439,7 +433,6 @@ fun MateriPage(navController: NavController, kursusId: Int) {
                 else -> Text("Data kursus tidak ditemukan", Modifier.align(Alignment.Center))
             }
 
-            // button sertif kalau dah selesai semua
             if (enrollmentStatus == "completed") {
                 Box(modifier = Modifier.fillMaxSize()) {
                     val scopeLocal = rememberCoroutineScope()

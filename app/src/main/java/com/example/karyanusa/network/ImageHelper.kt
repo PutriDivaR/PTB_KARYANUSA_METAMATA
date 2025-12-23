@@ -12,7 +12,6 @@ import java.io.FileOutputStream
 
 object ImageHelper {
 
-    // Convert URI (galeri) -> Multipart
     fun uriToMultipart(
         context: Context,
         uri: Uri,
@@ -32,7 +31,6 @@ object ImageHelper {
         return MultipartBody.Part.createFormData(fieldName, file.name, requestBody)
     }
 
-    // Convert Bitmap (kamera) -> Multipart
     fun bitmapToMultipart(context: Context, bitmap: Bitmap, fieldName: String = "gambar"): MultipartBody.Part {
         val stream = ByteArrayOutputStream()
         bitmap.compress(Bitmap.CompressFormat.JPEG, 90, stream)

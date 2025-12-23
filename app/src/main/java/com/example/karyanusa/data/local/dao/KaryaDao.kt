@@ -7,16 +7,11 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface KaryaDao {
 
-    // Sort by galeri_id DESC (ID besar = data baru)
     @Query("SELECT * FROM karya ORDER BY galeri_id DESC")
     fun getAllKarya(): Flow<List<KaryaEntity>>
 
     @Query("SELECT * FROM karya WHERE user_id = :userId ORDER BY galeri_id DESC")
     fun getKaryaByUser(userId: Int): Flow<List<KaryaEntity>>
-
-    // Alternatif: Sort by created_at jika ingin pakai timestamp backend
-    // @Query("SELECT * FROM karya ORDER BY created_at DESC NULLS LAST")
-    // fun getAllKarya(): Flow<List<KaryaEntity>>
 
     @Query("SELECT * FROM karya WHERE galeri_id = :galeriId")
     suspend fun getKaryaById(galeriId: Int): KaryaEntity?

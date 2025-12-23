@@ -62,7 +62,6 @@ fun UploadKaryaPage(navController: NavController) {
     val background = Color(0xFFFFF5F7)
     val accent = Color(0xFFFFE4EC)
 
-    // ✅ Gallery Picker
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -70,7 +69,6 @@ fun UploadKaryaPage(navController: NavController) {
         capturedBitmap = null
     }
 
-    // ✅ Camera Capture (harus dideklarasikan SEBELUM cameraPermissionLauncher)
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicturePreview()
     ) { bitmap: Bitmap? ->
@@ -78,32 +76,26 @@ fun UploadKaryaPage(navController: NavController) {
         imageUri = null
     }
 
-    // ✅ Permission Launcher untuk Camera
     val cameraPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         if (isGranted) {
-            // Permission granted, buka kamera
             cameraLauncher.launch(null)
         } else {
-            // Permission denied
             snackbarMessage = "Izin kamera ditolak"
             showSnackbar = true
         }
     }
 
-    // ✅ Function untuk check dan request camera permission
     fun openCamera() {
         when (PackageManager.PERMISSION_GRANTED) {
             ContextCompat.checkSelfPermission(
                 context,
                 Manifest.permission.CAMERA
             ) -> {
-                // Permission already granted
                 cameraLauncher.launch(null)
             }
             else -> {
-                // Request permission
                 cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
             }
         }
@@ -153,7 +145,6 @@ fun UploadKaryaPage(navController: NavController) {
 
                 Spacer(Modifier.height(20.dp))
 
-                // ----- PREVIEW GAMBAR -----
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -186,7 +177,6 @@ fun UploadKaryaPage(navController: NavController) {
 
                 Spacer(Modifier.height(12.dp))
 
-                // Tombol Galeri / Kamera
                 Row(
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     modifier = Modifier.fillMaxWidth()
@@ -201,7 +191,7 @@ fun UploadKaryaPage(navController: NavController) {
                     }
 
                     OutlinedButton(
-                        onClick = { openCamera() }, // ✅ Pakai function openCamera()
+                        onClick = { openCamera() },
                         enabled = !isUploading
                     ) {
                         Icon(Icons.Default.CameraAlt, contentDescription = null, tint = pinkTua)
@@ -212,7 +202,6 @@ fun UploadKaryaPage(navController: NavController) {
 
                 Spacer(Modifier.height(20.dp))
 
-                // Input Nama
                 OutlinedTextField(
                     value = namaKarya,
                     onValueChange = {
@@ -233,7 +222,6 @@ fun UploadKaryaPage(navController: NavController) {
 
                 Spacer(Modifier.height(12.dp))
 
-                // Input Deskripsi
                 OutlinedTextField(
                     value = deskripsi,
                     onValueChange = {
@@ -254,7 +242,6 @@ fun UploadKaryaPage(navController: NavController) {
 
                 Spacer(Modifier.height(20.dp))
 
-                // ----- BUTTON UPLOAD -----
                 Button(
                     onClick = {
                         if (imageUri == null && capturedBitmap == null) {
@@ -349,7 +336,6 @@ fun UploadKaryaPage(navController: NavController) {
                 Spacer(Modifier.height(24.dp))
             }
 
-            // ----- SNACKBAR -----
             AnimatedVisibility(
                 visible = showSnackbar,
                 enter = fadeIn(),

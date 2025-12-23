@@ -64,7 +64,6 @@ fun GaleriPage(navController: NavController) {
             }
         },
 
-        // ✅ Satu-satunya BottomBar di halaman ini
         bottomBar = {
             BottomAppBar(containerColor = pinkMuda) {
                 Row(

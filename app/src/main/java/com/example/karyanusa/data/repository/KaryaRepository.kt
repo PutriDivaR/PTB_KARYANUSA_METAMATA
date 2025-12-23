@@ -24,7 +24,6 @@ class KaryaRepository(
     suspend fun syncMyKarya(token: String, userId: Int) {
         withContext(Dispatchers.IO) {
             try {
-                // Token sudah format Bearer dari LoginTokenManager
                 val response = api.getMyKarya(token).execute()
                 if (response.isSuccessful && response.body()?.status == true) {
                     response.body()?.data?.let { list ->
@@ -94,7 +93,6 @@ class KaryaRepository(
     suspend fun deleteKarya(token: String, galeriId: Int) {
         withContext(Dispatchers.IO) {
             try {
-                // Token sudah format Bearer dari LoginTokenManager
                 val response = api.deleteKarya(token, galeriId).execute()
                 if (response.isSuccessful) {
                     dao.deleteById(galeriId)

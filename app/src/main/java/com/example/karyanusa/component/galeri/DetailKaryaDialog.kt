@@ -39,19 +39,13 @@ fun DetailKaryaDialog(
     val context = LocalContext.current
     val tokenManager = remember { LoginTokenManager(context) }
 
-    // State untuk View
     var viewCounted by remember { mutableStateOf(false) }
     var currentViews by remember { mutableIntStateOf(karya.views) }
 
-    // State untuk Like
     var isLiked by remember { mutableStateOf(false) }
     var likesCount by remember { mutableIntStateOf(karya.likes) }
     var isLiking by remember { mutableStateOf(false) }
 
-    /**
-     * TIMER 5 DETIK untuk increment view
-     * Backend akan cek milestone (5, 10, 25, 50, 100)
-     */
     LaunchedEffect(karya.galeri_id) {
         Log.d("DetailKarya", "⏱️ Timer 5 detik dimulai untuk karya ID: ${karya.galeri_id}")
         delay(5000L)
@@ -85,9 +79,7 @@ fun DetailKaryaDialog(
         }
     }
 
-    /**
-     * Check apakah user sudah like karya ini
-     */
+
     LaunchedEffect(karya.galeri_id) {
         val token = tokenManager.getBearerToken()
         if (token != null) {
@@ -113,9 +105,7 @@ fun DetailKaryaDialog(
         }
     }
 
-    /**
-     * Function Toggle Like - TANPA NOTIFIKASI (Backend sudah handle)
-     */
+
     fun toggleLike() {
         if (isLiking) return
 
@@ -163,9 +153,6 @@ fun DetailKaryaDialog(
             })
     }
 
-    /**
-     * UI DIALOG - FIXED: Clickable hierarchy agar button bisa diklik
-     */
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -191,7 +178,6 @@ fun DetailKaryaDialog(
                 modifier = Modifier.padding(18.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // GAMBAR
                 Image(
                     painter = rememberAsyncImagePainter(
                         model = "http://10.0.2.2:8000/storage/${karya.gambar}"
@@ -205,7 +191,6 @@ fun DetailKaryaDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // JUDUL
                 Text(
                     text = karya.judul,
                     fontSize = 20.sp,
@@ -216,7 +201,6 @@ fun DetailKaryaDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // CAPTION
                 Text(
                     text = karya.caption,
                     fontSize = 14.sp,
@@ -228,12 +212,10 @@ fun DetailKaryaDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // LIKE & VIEWS ROW
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
-                    // LIKE BUTTON
                     Surface(
                         modifier = Modifier
                             .clickable(enabled = !isLiking) {
@@ -271,7 +253,6 @@ fun DetailKaryaDialog(
                         }
                     }
 
-                    // VIEWS COUNTER
                     Surface(
                         shape = RoundedCornerShape(50),
                         color = Color(0xFFF0F0F0)
@@ -297,7 +278,6 @@ fun DetailKaryaDialog(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // UPLOADER NAME
                 karya.uploader_name?.let {
                     Text(
                         text = "Diupload oleh $it",
@@ -311,7 +291,6 @@ fun DetailKaryaDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // TANGGAL UPLOAD
                 karya.tanggal_upload?.let {
                     Text(
                         text = "📅 $it",
@@ -322,7 +301,6 @@ fun DetailKaryaDialog(
 
                 Spacer(modifier = Modifier.height(18.dp))
 
-                // CLOSE BUTTON
                 Button(
                     onClick = {
                         Log.d("DetailKarya", "🔘 Close button clicked!")

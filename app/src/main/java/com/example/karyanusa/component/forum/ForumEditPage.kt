@@ -73,20 +73,16 @@ fun ForumEditPage(
     val context = LocalContext.current
     val tokenManager = remember { LoginTokenManager(context) }
 
-    // State untuk API
     var isLoading by remember { mutableStateOf(true) }
     var isSaving by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var questionData by remember { mutableStateOf<ForumPertanyaanResponse?>(null) }
 
-    // State untuk edit
     var questionText by remember { mutableStateOf("") }
     val editableImages = remember { mutableStateListOf<Uri>() }
 
-    // ✅ TAMBAHAN: Track original images untuk deteksi perubahan
     var originalImages by remember { mutableStateOf<List<String>>(emptyList()) }
 
-    // State untuk UI
     var cameraImageUri by remember { mutableStateOf<Uri?>(null) }
     var showImageViewer by remember { mutableStateOf(false) }
     var selectedImageIndex by remember { mutableIntStateOf(0) }
@@ -127,7 +123,6 @@ fun ForumEditPage(
                                 editableImages.add(imageUrl.toUri())
                             }
 
-                            // ✅ Simpan original images
                             originalImages = data.image_forum ?: emptyList()
 
                         } else {
@@ -202,15 +197,12 @@ fun ForumEditPage(
                 val imageParts = mutableListOf<MultipartBody.Part>()
                 val keepImages = mutableListOf<String>()
 
-                // ✅ Proses gambar dengan KOMPRESI
                 editableImages.forEachIndexed { index, imageUri ->
                     when {
-                        // 🆕 Gambar BARU dari galeri/kamera - KOMPRES DULU!
                         imageUri.scheme == "content" || imageUri.scheme == "file" -> {
                             try {
                                 Log.d("ForumEdit", "Processing new image $index: $imageUri")
 
-                                // ✅ KOMPRES GAMBAR (sama seperti ForumAddPage)
                                 val compressedFile = compressImage(context, imageUri, maxSizeKB = 1024)
 
                                 if (compressedFile == null || !compressedFile.exists()) {
@@ -229,7 +221,6 @@ fun ForumEditPage(
                                 val fileSizeKB = compressedFile.length() / 1024
                                 Log.d("ForumEdit", "✓ Compressed: ${compressedFile.name}, Size: ${fileSizeKB}KB")
 
-                                // ✅ BUAT MULTIPART DARI FILE YANG SUDAH DIKOMPRES
                                 val requestFile = compressedFile.asRequestBody("image/jpeg".toMediaTypeOrNull())
                                 val part = MultipartBody.Part.createFormData("image_forum[]", compressedFile.name, requestFile)
                                 imageParts.add(part)
@@ -250,7 +241,6 @@ fun ForumEditPage(
                             }
                         }
 
-                        // 📌 Gambar LAMA dari server (URL) - Tidak perlu dikompres
                         imageUri.scheme == "http" || imageUri.scheme == "https" -> {
                             keepImages.add(imageUri.toString())
                             Log.d("ForumEdit", "✓ Keep old image: $imageUri")
@@ -258,11 +248,9 @@ fun ForumEditPage(
                     }
                 }
 
-                // ✅ Buat PartMap
                 val partMap = mutableMapOf<String, RequestBody>()
                 partMap["isi"] = questionText.toRequestBody("text/plain".toMediaTypeOrNull())
 
-                // Tambahkan keep_images
                 keepImages.forEachIndexed { index, url ->
                     partMap["keep_images[$index]"] = url.toRequestBody("text/plain".toMediaTypeOrNull())
                 }
@@ -317,27 +305,28 @@ fun ForumEditPage(
 
     fun formatTanggal(tanggal: String): String {
         return try {
-            val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'", Locale.getDefault())
+            val inputFormat = SimpleDateFormat(
+                "yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'",
+                Locale.US
+            ).apply {
+                timeZone = TimeZone.getTimeZone("UTC")
+            }
+
             val outputFormat = SimpleDateFormat(
                 "dd MMM yyyy, HH:mm",
-                Locale.Builder().setLanguage("id").setRegion("ID").build()
-            )
+                Locale("id", "ID")
+            ).apply {
+                timeZone = TimeZone.getTimeZone("Asia/Jakarta")
+            }
+
             val date = inputFormat.parse(tanggal)
             outputFormat.format(date ?: Date())
-        } catch (_: Exception) {
-            try {
-                val inputFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-                val outputFormat = SimpleDateFormat(
-                    "dd MMM yyyy, HH:mm",
-                    Locale.Builder().setLanguage("id").setRegion("ID").build()
-                )
-                val date = inputFormat.parse(tanggal)
-                outputFormat.format(date ?: Date())
-            } catch (_: Exception) {
-                tanggal
-            }
+
+        } catch (e: Exception) {
+            tanggal
         }
     }
+
 
     LaunchedEffect(questionId) {
         loadQuestionForEdit()
@@ -387,7 +376,6 @@ fun ForumEditPage(
                         if (questionData != null) {
                             val textChanged = questionText != questionData!!.isi
 
-                            // ✅ PERBAIKAN: Deteksi perubahan gambar dengan benar
                             val currentImageStrings = editableImages.map { it.toString() }
                             val imageChanged = currentImageStrings != originalImages
 
@@ -492,14 +480,12 @@ fun ForumEditPage(
                                     modifier = Modifier.weight(1f),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    // 🔥 AVATAR - Prioritas: Foto profil > Inisial
                                     Box(
                                         modifier = Modifier
                                             .size(48.dp)
                                             .clip(CircleShape)
                                     ) {
                                         if (!data.user?.foto_profile.isNullOrEmpty()) {
-                                            // Tampilkan foto profil jika ada
                                             Image(
                                                 painter = rememberAsyncImagePainter(
                                                     ImageRequest.Builder(context)
@@ -514,7 +500,6 @@ fun ForumEditPage(
                                                 contentScale = ContentScale.Crop
                                             )
                                         } else {
-                                            // Tampilkan inisial jika tidak ada foto
                                             Box(
                                                 modifier = Modifier
                                                     .fillMaxSize()
@@ -580,7 +565,6 @@ fun ForumEditPage(
                                 enabled = !isSaving
                             )
 
-                            // Preview Gambar dengan Grid Layout
                             if (editableImages.isNotEmpty()) {
                                 Spacer(Modifier.height(8.dp))
 
@@ -909,14 +893,12 @@ fun ForumEditPage(
                                     modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.Top
                                 ) {
-                                    // 🔥 AVATAR BALASAN - Prioritas: Foto profil > Inisial
                                     Box(
                                         modifier = Modifier
                                             .size(45.dp)
                                             .clip(CircleShape)
                                     ) {
                                         if (!reply.user?.foto_profile.isNullOrEmpty()) {
-                                            // Tampilkan foto profil jika ada
                                             Image(
                                                 painter = rememberAsyncImagePainter(
                                                     ImageRequest.Builder(context)
@@ -1033,7 +1015,6 @@ fun ForumEditPage(
                 }
             }
 
-            // Button Simpan
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1072,7 +1053,7 @@ fun ForumEditPage(
                 }
             }
 
-            // Dialog Konfirmasi Simpan
+
             if (showConfirmDialog) {
                 AlertDialog(
                     onDismissRequest = { if (!isSaving) showConfirmDialog = false },
@@ -1102,7 +1083,6 @@ fun ForumEditPage(
                 )
             }
 
-            // Dialog Konfirmasi Keluar
             if (showExitConfirmDialog) {
                 AlertDialog(
                     onDismissRequest = { showExitConfirmDialog = false },
@@ -1125,7 +1105,7 @@ fun ForumEditPage(
                 )
             }
 
-            // Image Viewer Dialog dengan Zoom & Slide
+
             if (showImageViewer && viewerImages.isNotEmpty()) {
                 Dialog(
                     onDismissRequest = { showImageViewer = false },

@@ -141,7 +141,7 @@ fun KursusPage(navController: NavController) {
                                         ) {
                                             when (painter.state) {
                                                 is AsyncImagePainter.State.Loading -> {
-                                                    // SKELETON
+
                                                     Box(
                                                         Modifier
                                                             .fillMaxSize()

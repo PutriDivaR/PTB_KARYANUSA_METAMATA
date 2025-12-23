@@ -53,7 +53,6 @@ class VideoPlayerActivity : ComponentActivity() {
 
                 DisposableEffect(Unit) {
                     onDispose {
-                        // Kirim hasil ke MateriPage saat ditutup
                         val resultIntent = intent.apply {
                             putExtra("video_completed", videoCompleted)
                         }
@@ -72,7 +71,6 @@ class VideoPlayerActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize()
                 )
 
-                // keluar fullscren
                 IconButton(
                     onClick = { finish() },
                     modifier = Modifier

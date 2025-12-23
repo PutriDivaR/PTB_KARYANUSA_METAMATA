@@ -13,7 +13,6 @@ class FirebaseNotifikasi : FirebaseMessagingService() {
         super.onNewToken(token)
         Log.d("FCM_TOKEN", "Token baru: $token")
 
-        // Simpan token ke SharedPreferences
         val manager = LoginTokenManager(baseContext)
         manager.saveFcmToken(token)
     }

@@ -60,7 +60,6 @@ fun generateCertificatePdf(context: Context, userName: String, kursusTitle: Stri
 
         document.finishPage(page)
 
-        // Save PDF
         val fileName = "Sertifikat_KaryaNusa_${SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())}.pdf"
         val savedUri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             saveToMediaStore(context, document, fileName)

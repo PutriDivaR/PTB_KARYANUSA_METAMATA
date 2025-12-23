@@ -26,38 +26,26 @@ class ForumRepository(
     private val gson = Gson()
     private val CACHE_DURATION = 5 * 60 * 1000L // 5 menit
 
-    /**
-     * Ambil pertanyaan dengan strategi Cache-First
-     * - Pertama cek cache lokal
-     * - Jika cache expired atau kosong, fetch dari API
-     * - Simpan hasil API ke cache
-     */
     fun getPertanyaan(token: String): Flow<Result<List<ForumPertanyaanResponse>>> = flow {
         try {
-            // 1. Cek cache lokal dulu
             val cachedData = forumDao.getAllPertanyaan()
             val currentTime = System.currentTimeMillis()
 
-            // Jika ada cache dan masih fresh
             if (cachedData.isNotEmpty() &&
                 (currentTime - cachedData.first().cached_at) < CACHE_DURATION) {
                 Log.d("ForumRepository", "Using cached data")
                 emit(Result.success(cachedData.map { it.toResponse() }))
             } else {
-                // 2. Cache expired atau kosong, fetch dari API
                 Log.d("ForumRepository", "Fetching from API")
                 val apiResponse = fetchFromApi(token)
 
-                // 3. Simpan ke cache
                 saveToCache(apiResponse)
 
-                // 4. Emit hasil API
                 emit(Result.success(apiResponse))
             }
         } catch (e: Exception) {
             Log.e("ForumRepository", "Error: ${e.message}")
 
-            // Jika API gagal, coba ambil dari cache (stale cache)
             try {
                 val staleCache = forumDao.getAllPertanyaan()
                 if (staleCache.isNotEmpty()) {
@@ -72,9 +60,7 @@ class ForumRepository(
         }
     }.flowOn(Dispatchers.IO)
 
-    /**
-     * Fetch data dari API dengan suspendCoroutine
-     */
+
     private suspend fun fetchFromApi(token: String): List<ForumPertanyaanResponse> {
         return suspendCoroutine { continuation ->
             apiService.getPertanyaan("Bearer $token").enqueue(
@@ -101,9 +87,6 @@ class ForumRepository(
         }
     }
 
-    /**
-     * Simpan data ke cache Room
-     */
     private suspend fun saveToCache(data: List<ForumPertanyaanResponse>) {
         withContext(Dispatchers.IO) {
             val entities = data.map { it.toEntity() }
@@ -113,9 +96,7 @@ class ForumRepository(
         }
     }
 
-    /**
-     * Force refresh dari API (untuk pull-to-refresh)
-     */
+
     suspend fun refreshPertanyaan(token: String): Result<List<ForumPertanyaanResponse>> {
         return withContext(Dispatchers.IO) {
             try {
@@ -128,9 +109,7 @@ class ForumRepository(
         }
     }
 
-    /**
-     * Delete pertanyaan dari API dan cache
-     */
+
     suspend fun deletePertanyaan(token: String, id: Int): Result<String> {
         return withContext(Dispatchers.IO) {
             try {
@@ -157,7 +136,6 @@ class ForumRepository(
                     )
                 }
 
-                // Hapus dari cache juga
                 forumDao.deleteById(id)
 
                 Result.success(response.message)
@@ -167,20 +145,14 @@ class ForumRepository(
         }
     }
 
-    /**
-     * Clear semua cache
-     */
+
     suspend fun clearCache() {
         withContext(Dispatchers.IO) {
             forumDao.deleteAll()
         }
     }
 
-    // ==================== CONVERTER FUNCTIONS ====================
 
-    /**
-     * Convert Response to Entity
-     */
     private fun ForumPertanyaanResponse.toEntity(): ForumEntity {
         val imageListJson: String = gson.toJson(this.image_forum ?: emptyList<String>())
 
@@ -199,9 +171,7 @@ class ForumRepository(
         )
     }
 
-    /**
-     * Convert Entity to Response
-     */
+
     private fun ForumEntity.toResponse(): ForumPertanyaanResponse {
         val imageList: List<String>? = try {
             val array = gson.fromJson(this.image_forum, Array<String>::class.java)
@@ -217,7 +187,7 @@ class ForumRepository(
             tanggal = this.tanggal,
             updated_at = this.updated_at,
             image_forum = imageList,
-            jawaban = null, // Cache tidak menyimpan jawaban lengkap
+            jawaban = null,
             user = if (this.user_nama != null) {
                 com.example.karyanusa.network.UserData(
                     user_id = this.user_id,

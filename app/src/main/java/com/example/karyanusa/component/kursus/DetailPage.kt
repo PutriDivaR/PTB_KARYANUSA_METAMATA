@@ -50,19 +50,16 @@ import retrofit2.Response
 @Composable
 fun DetailPage(navController: NavController, kursusId: Int, notifId: Int? = null) {
 
-    // VIEW MODELS (Pengganti direct Retrofit call untuk data)
+
     val kursusViewModel: KursusViewModel = viewModel()
     val materiViewModel: MateriViewModel = viewModel()
 
-    // OBSERVING DATA ROOM
-    // Mengambil daftar kursus dari database lokal (ROOM)
     val allKursus by kursusViewModel.kursus.collectAsState()
     val materiList by materiViewModel.getMateri(kursusId).collectAsState(initial = emptyList())
     val isMateriLoading by materiViewModel.isLoading.collectAsState()
 
     val kursus = allKursus.find { it.kursus_id == kursusId }
 
-    // STATE LOKAL
     var enrollmentStatus by remember { mutableStateOf("none") }
     var showShareSheet by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
@@ -75,12 +72,9 @@ fun DetailPage(navController: NavController, kursusId: Int, notifId: Int? = null
     val token = tokenManager.getToken()
 
 
-
-    // OAD DATA & SYNC
     LaunchedEffect(kursusId) {
         materiViewModel.refreshMateri(kursusId)
 
-        // Cek Status Enrollment
         if (token != null) {
             RetrofitClient.instance.checkEnrollment("Bearer $token", kursusId)
                 .enqueue(object : Callback<EnrollmentCheckResponse> {
@@ -98,7 +92,7 @@ fun DetailPage(navController: NavController, kursusId: Int, notifId: Int? = null
         }
     }
 
-    // Mark Notifikasi
+
     LaunchedEffect(notifId) {
         if (notifId != null && token != null) {
             RetrofitClient.instance
@@ -110,7 +104,7 @@ fun DetailPage(navController: NavController, kursusId: Int, notifId: Int? = null
         }
     }
 
-    // kirim notif
+
     fun sendCourseShareNotif(toUser: Int) {
         val currentIdInt = tokenManager.getUserId()
         val currentUsername = tokenManager.getUserName()
@@ -196,7 +190,7 @@ fun DetailPage(navController: NavController, kursusId: Int, notifId: Int? = null
                 CircularProgressIndicator(Modifier.align(Alignment.Center))
             } else {
                 Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = innerPadding.calculateBottomPadding() + 20.dp)) {
-                    // Header Image
+
                     Box {
                         Image(
                             painter = rememberAsyncImagePainter(
@@ -246,8 +240,8 @@ fun DetailPage(navController: NavController, kursusId: Int, notifId: Int? = null
                         Text(kursus.pengrajin_nama, fontSize = 16.sp, fontWeight = FontWeight.Medium)
                     }
                     Spacer(modifier = Modifier.height(16.dp))
-                    
-                    // kursusnya
+
+
                     Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
                         Column(Modifier.padding(16.dp)) {
                             Text("📝 Tentang Kelas", fontWeight = FontWeight.Bold)
@@ -257,7 +251,7 @@ fun DetailPage(navController: NavController, kursusId: Int, notifId: Int? = null
                     }
                     Spacer(modifier = Modifier.height(16.dp))
                     
-                    // Materi List
+
                     Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
                         Column(Modifier.padding(16.dp)) {
                             Text("📚 Daftar Materi", fontWeight = FontWeight.Bold)
@@ -280,7 +274,7 @@ fun DetailPage(navController: NavController, kursusId: Int, notifId: Int? = null
                 }
             }
 
-            // Button Action
+
             Box(modifier = Modifier.fillMaxWidth().padding(bottom = innerPadding.calculateBottomPadding()).padding(horizontal = 16.dp, vertical = 12.dp).align(Alignment.BottomCenter)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),

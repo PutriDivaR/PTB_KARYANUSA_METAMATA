@@ -10,7 +10,7 @@ data class ForumEntity(
     val isi: String,
     val tanggal: String,
     val updated_at: String?,
-    val image_forum: String?, // JSON string
+    val image_forum: String?,
     val jawaban_count: Int,
     val user_nama: String?,
     val user_username: String?,
